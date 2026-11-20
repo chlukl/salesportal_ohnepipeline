@@ -1,0 +1,25 @@
+# dependencies / build
+node_modules/
+dist/
+.vite/
+coverage/
+*.tsbuildinfo
+
+# local data (PGlite) and secrets
+data/
+apps/server/data/
+secrets/
+.env
+.env.*
+!.env.example
+
+# logs / OS / editor
+*.log
+.smoke.log
+.dev.log
+.cj
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

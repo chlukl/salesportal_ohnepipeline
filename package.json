@@ -1,0 +1,28 @@
+{
+  "name": "sales-portal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "packages/shared",
+    "apps/server",
+    "apps/web"
+  ],
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "concurrently -n server,worker,web -c blue,magenta,green \"npm run dev -w @sales-portal/server\" \"npm run dev:worker -w @sales-portal/server\" \"npm run dev -w @sales-portal/web\"",
+    "build": "npm run build -w @sales-portal/web && npm run build -w @sales-portal/server",
+    "start": "npm run start -w @sales-portal/server",
+    "start:worker": "npm run start:worker -w @sales-portal/server",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "lint": "npm run typecheck",
+    "db:generate": "npm run db:generate -w @sales-portal/server"
+  },
+  "devDependencies": {
+    "concurrently": "10.0.7",
+    "typescript": "7.0.2"
+  }
+}

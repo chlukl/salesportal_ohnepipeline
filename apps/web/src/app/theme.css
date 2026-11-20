@@ -1,0 +1,290 @@
+/*
+ * Sales-Portal design tokens – the ONE place for colors, radii and shadows (ARCHITECTURE §8).
+ * Replace the --kls-* values with the official Kallysoft colors later; components only use the Tailwind names below.
+ * Color only with meaning: grades A–D, status, warning. Everything else is neutral.
+ */
+@import 'tailwindcss';
+
+@custom-variant dark (&:where([data-theme='dark'], [data-theme='dark'] *));
+
+:root {
+  color-scheme: light;
+  /* Neutrals */
+  --kls-bg: #f6f7f9;
+  --kls-surface: #ffffff;
+  --kls-surface-2: #f3f5f8;
+  --kls-surface-3: #e9edf2;
+  --kls-border: #e3e7ed;
+  --kls-border-strong: #cdd5df;
+  --kls-fg: #111c2b;
+  --kls-fg-muted: #4f5d70;
+  --kls-fg-subtle: #8693a4;
+  /* Accent: deep teal */
+  --kls-primary: #0b5f73;
+  --kls-primary-hover: #084d5e;
+  --kls-primary-fg: #ffffff;
+  --kls-primary-subtle: #e2f1f4;
+  --kls-ring: rgb(11 95 115 / 0.35);
+  /* Status */
+  --kls-success: #1c7347;
+  --kls-success-subtle: #e4f4eb;
+  --kls-warning: #9a5a06;
+  --kls-warning-subtle: #fdf1db;
+  --kls-danger: #b42318;
+  --kls-danger-subtle: #fdeceb;
+  --kls-info: #2456b3;
+  --kls-info-subtle: #e7eefb;
+  /* Grades A–D (score badges) */
+  --kls-grade-a: #11643f;
+  --kls-grade-a-bg: #d9f2e5;
+  --kls-grade-b: #1f5f9e;
+  --kls-grade-b-bg: #deebf9;
+  --kls-grade-c: #8a5d00;
+  --kls-grade-c-bg: #faefd2;
+  --kls-grade-d: #973526;
+  --kls-grade-d-bg: #f7e1dc;
+  --kls-grade-none: #5f6b7a;
+  --kls-grade-none-bg: #edf0f3;
+  /* Call status (header) */
+  --kls-call-dialing: #c47a0a;
+  --kls-call-connected: #1c7347;
+  --kls-call-wrapup: #2456b3;
+  /* Shape */
+  --kls-radius-sm: 6px;
+  --kls-radius-md: 8px;
+  --kls-radius-lg: 12px;
+  --kls-shadow-sm: 0 1px 2px rgb(16 24 40 / 0.05);
+  --kls-shadow-md: 0 4px 12px -2px rgb(16 24 40 / 0.08), 0 2px 4px -2px rgb(16 24 40 / 0.04);
+  --kls-shadow-lg: 0 16px 40px -8px rgb(16 24 40 / 0.18), 0 4px 10px -4px rgb(16 24 40 / 0.08);
+  --kls-header-h: 56px;
+  --kls-nav-w: 88px;
+}
+
+/* Dark mode: explicit choice … */
+:root[data-theme='dark'] {
+  color-scheme: dark;
+  --kls-bg: #0c1016;
+  --kls-surface: #131920;
+  --kls-surface-2: #19212a;
+  --kls-surface-3: #212b36;
+  --kls-border: #253040;
+  --kls-border-strong: #34425a;
+  --kls-fg: #e7ecf3;
+  --kls-fg-muted: #a0acbc;
+  --kls-fg-subtle: #6d7a8c;
+  --kls-primary: #48b4c9;
+  --kls-primary-hover: #66c4d6;
+  --kls-primary-fg: #051a1f;
+  --kls-primary-subtle: rgb(72 180 201 / 0.14);
+  --kls-ring: rgb(72 180 201 / 0.45);
+  --kls-success: #4cc38a;
+  --kls-success-subtle: rgb(76 195 138 / 0.13);
+  --kls-warning: #f0b45a;
+  --kls-warning-subtle: rgb(240 180 90 / 0.13);
+  --kls-danger: #f27a6e;
+  --kls-danger-subtle: rgb(242 122 110 / 0.14);
+  --kls-info: #7aa7f5;
+  --kls-info-subtle: rgb(122 167 245 / 0.14);
+  --kls-grade-a: #5fd39b;
+  --kls-grade-a-bg: rgb(95 211 155 / 0.14);
+  --kls-grade-b: #7fb3f0;
+  --kls-grade-b-bg: rgb(127 179 240 / 0.14);
+  --kls-grade-c: #e9c063;
+  --kls-grade-c-bg: rgb(233 192 99 / 0.14);
+  --kls-grade-d: #f09484;
+  --kls-grade-d-bg: rgb(240 148 132 / 0.14);
+  --kls-grade-none: #9aa6b5;
+  --kls-grade-none-bg: rgb(154 166 181 / 0.12);
+  --kls-call-dialing: #f0b45a;
+  --kls-call-connected: #4cc38a;
+  --kls-call-wrapup: #7aa7f5;
+  --kls-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --kls-shadow-md: 0 6px 16px -4px rgb(0 0 0 / 0.5);
+  --kls-shadow-lg: 0 18px 44px -8px rgb(0 0 0 / 0.65);
+}
+
+/* … or system preference when no explicit choice was made. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    color-scheme: dark;
+    --kls-bg: #0c1016;
+    --kls-surface: #131920;
+    --kls-surface-2: #19212a;
+    --kls-surface-3: #212b36;
+    --kls-border: #253040;
+    --kls-border-strong: #34425a;
+    --kls-fg: #e7ecf3;
+    --kls-fg-muted: #a0acbc;
+    --kls-fg-subtle: #6d7a8c;
+    --kls-primary: #48b4c9;
+    --kls-primary-hover: #66c4d6;
+    --kls-primary-fg: #051a1f;
+    --kls-primary-subtle: rgb(72 180 201 / 0.14);
+    --kls-ring: rgb(72 180 201 / 0.45);
+    --kls-success: #4cc38a;
+    --kls-success-subtle: rgb(76 195 138 / 0.13);
+    --kls-warning: #f0b45a;
+    --kls-warning-subtle: rgb(240 180 90 / 0.13);
+    --kls-danger: #f27a6e;
+    --kls-danger-subtle: rgb(242 122 110 / 0.14);
+    --kls-info: #7aa7f5;
+    --kls-info-subtle: rgb(122 167 245 / 0.14);
+    --kls-grade-a: #5fd39b;
+    --kls-grade-a-bg: rgb(95 211 155 / 0.14);
+    --kls-grade-b: #7fb3f0;
+    --kls-grade-b-bg: rgb(127 179 240 / 0.14);
+    --kls-grade-c: #e9c063;
+    --kls-grade-c-bg: rgb(233 192 99 / 0.14);
+    --kls-grade-d: #f09484;
+    --kls-grade-d-bg: rgb(240 148 132 / 0.14);
+    --kls-grade-none: #9aa6b5;
+    --kls-grade-none-bg: rgb(154 166 181 / 0.12);
+    --kls-call-dialing: #f0b45a;
+    --kls-call-connected: #4cc38a;
+    --kls-call-wrapup: #7aa7f5;
+    --kls-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+    --kls-shadow-md: 0 6px 16px -4px rgb(0 0 0 / 0.5);
+    --kls-shadow-lg: 0 18px 44px -8px rgb(0 0 0 / 0.65);
+  }
+}
+
+/* Tailwind names → tokens (use `bg-surface`, `text-fg-muted`, `border-border`, `bg-primary` …). */
+@theme inline {
+  --font-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --color-bg: var(--kls-bg);
+  --color-surface: var(--kls-surface);
+  --color-surface-2: var(--kls-surface-2);
+  --color-surface-3: var(--kls-surface-3);
+  --color-border: var(--kls-border);
+  --color-border-strong: var(--kls-border-strong);
+  --color-fg: var(--kls-fg);
+  --color-fg-muted: var(--kls-fg-muted);
+  --color-fg-subtle: var(--kls-fg-subtle);
+  --color-primary: var(--kls-primary);
+  --color-primary-hover: var(--kls-primary-hover);
+  --color-primary-fg: var(--kls-primary-fg);
+  --color-primary-subtle: var(--kls-primary-subtle);
+  --color-ring: var(--kls-ring);
+  --color-success: var(--kls-success);
+  --color-success-subtle: var(--kls-success-subtle);
+  --color-warning: var(--kls-warning);
+  --color-warning-subtle: var(--kls-warning-subtle);
+  --color-danger: var(--kls-danger);
+  --color-danger-subtle: var(--kls-danger-subtle);
+  --color-info: var(--kls-info);
+  --color-info-subtle: var(--kls-info-subtle);
+  --color-grade-a: var(--kls-grade-a);
+  --color-grade-a-bg: var(--kls-grade-a-bg);
+  --color-grade-b: var(--kls-grade-b);
+  --color-grade-b-bg: var(--kls-grade-b-bg);
+  --color-grade-c: var(--kls-grade-c);
+  --color-grade-c-bg: var(--kls-grade-c-bg);
+  --color-grade-d: var(--kls-grade-d);
+  --color-grade-d-bg: var(--kls-grade-d-bg);
+  --color-grade-none: var(--kls-grade-none);
+  --color-grade-none-bg: var(--kls-grade-none-bg);
+  --color-call-dialing: var(--kls-call-dialing);
+  --color-call-connected: var(--kls-call-connected);
+  --color-call-wrapup: var(--kls-call-wrapup);
+  --radius-sm: var(--kls-radius-sm);
+  --radius-md: var(--kls-radius-md);
+  --radius-lg: var(--kls-radius-lg);
+  --shadow-sm: var(--kls-shadow-sm);
+  --shadow-md: var(--kls-shadow-md);
+  --shadow-lg: var(--kls-shadow-lg);
+}
+
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+  body {
+    background: var(--kls-bg);
+    color: var(--kls-fg);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.5;
+    font-feature-settings: 'cv11', 'ss01', 'tnum' 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::selection {
+    background: var(--kls-primary-subtle);
+  }
+  :focus-visible {
+    outline: 2px solid var(--kls-ring);
+    outline-offset: 2px;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@keyframes kls-shimmer {
+  0% {
+    background-position: -400px 0;
+  }
+  100% {
+    background-position: 400px 0;
+  }
+}
+@keyframes kls-pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+@keyframes kls-slide-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+@keyframes kls-fade-up {
+  from {
+    transform: translateY(6px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@utility skeleton {
+  background: linear-gradient(90deg, var(--kls-surface-2) 0, var(--kls-surface-3) 40%, var(--kls-surface-2) 80%);
+  background-size: 800px 100%;
+  animation: kls-shimmer 1.4s infinite linear;
+}
+@utility pulse-dot {
+  animation: kls-pulse-dot 1.2s ease-in-out infinite;
+}
+@utility animate-slide-in {
+  animation: kls-slide-in 160ms ease-out;
+}
+@utility animate-fade-up {
+  animation: kls-fade-up 160ms ease-out;
+}
+
+dialog::backdrop {
+  background: rgb(10 16 24 / 0.45);
+  backdrop-filter: blur(2px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

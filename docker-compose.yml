@@ -1,0 +1,133 @@
+# Sales-Portal – app (API + Web), worker, Postgres 16.
+# Secrets live in ./secrets/*.txt (never commit them) and are mounted as Docker secrets (/run/secrets/<name>).
+# Non-secret settings come from .env (see .env.example).
+
+x-app-env: &app-env
+  NODE_ENV: production
+  PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL fehlt (z.B. https://sales-portal.intern)}
+  # Address of the TLS reverse proxy as the container sees it (proxy on the host: gateway of the compose network,
+  # e.g. 172.18.0.1). Never `true` (the client could pick its own IP). `false` = no proxy.
+  TRUST_PROXY: ${TRUST_PROXY:?TRUST_PROXY fehlt (Adresse des Reverse Proxy aus Sicht des Containers, z.B. 172.18.0.1, oder false)}
+  LOG_LEVEL: ${LOG_LEVEL:-info}
+  DATABASE_URL: postgres://sales_portal@db:5432/sales_portal
+  DATABASE_PASSWORD_FILE: /run/secrets/db_password
+  AUTH_MODE: entra
+  SESSION_SECRET_FILE: /run/secrets/session_secret
+  TOKEN_ENC_KEY_FILE: /run/secrets/token_enc_key
+  ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:?ENTRA_TENANT_ID fehlt}
+  ENTRA_CLIENT_ID: ${ENTRA_CLIENT_ID:?ENTRA_CLIENT_ID fehlt}
+  ENTRA_CLIENT_SECRET_FILE: /run/secrets/entra_client_secret
+  BOOTSTRAP_ADMIN_EMAILS: ${BOOTSTRAP_ADMIN_EMAILS:-}
+  INTEGRATIONS: ${INTEGRATIONS:-live}
+  CRM_ADAPTER: ${CRM_ADAPTER:-}
+  CALENDAR_ADAPTER: ${CALENDAR_ADAPTER:-}
+  MAIL_ADAPTER: ${MAIL_ADAPTER:-}
+  AI_ADAPTER: ${AI_ADAPTER:-}
+  TRANSCRIPT_ADAPTER: ${TRANSCRIPT_ADAPTER:-}
+  TELEPHONY_ADAPTER: ${TELEPHONY_ADAPTER:-}
+  ALLOW_MOCK_IN_PRODUCTION: ${ALLOW_MOCK_IN_PRODUCTION:-false}
+  ENVIRONMENT_LABEL: ${ENVIRONMENT_LABEL:-Sandbox}
+  DATAVERSE_URL: ${DATAVERSE_URL:-}
+  ANTHROPIC_API_KEY_FILE: /run/secrets/anthropic_api_key
+  MAIL_TEST_RECIPIENT: ${MAIL_TEST_RECIPIENT:-}
+  VERA_API_URL: ${VERA_API_URL:-}
+  FEATURE_FLAGS: ${FEATURE_FLAGS:-}
+
+x-app-secrets: &app-secrets
+  - session_secret
+  - token_enc_key
+  - entra_client_secret
+  - anthropic_api_key
+  - db_password
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: sales_portal
+      POSTGRES_USER: sales_portal
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+    secrets:
+      - db_password
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U sales_portal -d sales_portal']
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    networks: [internal]
+
+  app:
+    build: .
+    image: sales-portal:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+      WORKER_EMBEDDED: 'false'
+    secrets: *app-secrets
+    ports:
+      # Only reachable from the internal network / VPN – put the TLS reverse proxy in front.
+      - '${APP_BIND:-127.0.0.1}:${APP_PORT:-3000}:3000'
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    networks: [internal]
+
+  worker:
+    image: sales-portal:latest
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+      app:
+        condition: service_started
+    command: ['node', 'apps/server/dist/worker.js']
+    environment:
+      <<: *app-env
+    secrets: *app-secrets
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop: [ALL]
+    healthcheck:
+      # The worker touches /tmp/sales-portal-worker.heartbeat after every polling round.
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "const s=require('fs').statSync('/tmp/sales-portal-worker.heartbeat');process.exit(Date.now()-s.mtimeMs<120000?0:1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 60s
+      retries: 3
+    networks: [internal]
+
+secrets:
+  session_secret:
+    file: ./secrets/session_secret.txt
+  token_enc_key:
+    file: ./secrets/token_enc_key.txt
+  entra_client_secret:
+    file: ./secrets/entra_client_secret.txt
+  anthropic_api_key:
+    file: ./secrets/anthropic_api_key.txt
+  db_password:
+    file: ./secrets/db_password.txt
+
+volumes:
+  db-data:
+
+networks:
+  internal:
