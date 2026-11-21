@@ -3,7 +3,7 @@
  * Coldcaller: unabgeschlossene Anrufe, fällige Rückrufe und Aufgaben zuoberst. Filter in der URL
  * (`?art=task&faellig=overdue,today&herkunft=campaign&firma=…&status=open&person=<id>`), speicherbar.
  */
-import type { PendenzDue, PendenzEntry, PendenzFilter, PendenzKind, PendenzOrigin, PendenzPerson, PendenzenResponse } from '@sales-portal/shared';
+import { PENDENZ_TEAM, type PendenzDue, type PendenzEntry, type PendenzFilter, type PendenzKind, type PendenzOrigin, type PendenzPerson, type PendenzenResponse } from '@sales-portal/shared';
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, CheckCircle2, Eye, Info, PhoneOutgoing, Search, SearchX, X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -71,7 +71,9 @@ export default function PendenzenPage() {
     toast.info('Filter zurückgesetzt', { action: { label: 'Rückgängig', onClick: () => setParams(writeFilter(previous), { replace: true }) } });
   };
   // «Analysen zur Freigabe» (INTENT 6.4/6.16): collected review with approve / dismiss right here, not lead by lead.
-  const showAnalyses = filter.kinds?.length === 1 && filter.kinds[0] === 'analysis' && hasRole('coldcaller', 'admin');
+  // The analysis review list acts (Ergänzen) – only for the own list or a real admin looking at one person.
+  const ownOrAdminView = !filter.userId || filter.userId === me.user.id || (me.isRealAdmin && filter.userId !== PENDENZ_TEAM);
+  const showAnalyses = filter.kinds?.length === 1 && filter.kinds[0] === 'analysis' && hasRole('coldcaller', 'admin') && ownOrAdminView;
 
   // ---- data ---------------------------------------------------------------------------------------------------------
   const query = useQuery({
@@ -88,7 +90,6 @@ export default function PendenzenPage() {
   const persons = useQuery({
     queryKey: [...PENDENZEN_KEY, 'persons'],
     queryFn: () => api.get<{ items: PendenzPerson[] }>('/api/pendenzen/persons'),
-    enabled: me.isRealAdmin,
     staleTime: 5 * 60_000,
   });
   const saved = useSavedFilters();
@@ -108,7 +109,10 @@ export default function PendenzenPage() {
   const [pendingDone, setPendingDone] = useState<ReadonlySet<string>>(() => new Set());
   const items = useMemo(() => (data?.items ?? []).filter((i) => !pendingDone.has(i.id)), [data, pendingDone]);
   const viewingOther = !!data && data.person.id !== me.user.id;
-  const isColdcaller = data ? data.coldcallerFirst : hasRole('coldcaller');
+  const viewingTeam = data?.person.id === PENDENZ_TEAM;
+  const readOnly = !!data?.readOnly;
+  // Coldcall hints (Anrufliste, «Danach») only on the own list – never when looking at a colleague or the team.
+  const isColdcaller = data ? data.coldcallerFirst && !data.readOnly && !viewingOther : hasRole('coldcaller');
 
   // ---- company filter (debounced into the URL) ----------------------------------------------------------------------
   const [company, setCompany] = useState(filter.company ?? '');
@@ -259,8 +263,9 @@ export default function PendenzenPage() {
   const firstName = me.user.displayName.split(' ')[0];
   const openCount = items.filter((i) => i.status === 'open').length;
   const overdue = data?.dueCounts.overdue ?? 0;
-  const top = items.find((i) => i.status === 'open' && i.link);
-  const title = viewingOther ? `Pendenzen von ${data!.person.displayName}` : `Guten Tag, ${firstName}`;
+  // Read-only lists get no header action: «Anruf abschliessen» etc. is the owner's job.
+  const top = readOnly ? undefined : items.find((i) => i.status === 'open' && i.link);
+  const title = viewingTeam ? 'Pendenzen des Teams' : viewingOther ? `Pendenzen von ${data!.person.displayName}` : `Guten Tag, ${firstName}`;
   const description = query.isLoading
     ? 'Pendenzen werden geladen …'
     : openCount === 0
@@ -315,7 +320,18 @@ export default function PendenzenPage() {
         <div className="mb-5 flex items-center justify-between gap-4 rounded-lg border border-info/30 bg-info-subtle px-4 py-2.5 text-sm text-info">
           <span className="flex items-center gap-2">
             <Eye className="size-4" aria-hidden />
-            Du siehst die Pendenzen von <strong className="font-semibold">{data!.person.displayName}</strong>. Aktionen gelten für diese Person.
+            {viewingTeam ? (
+              <>Du siehst die Pendenzen des ganzen Teams – nur ansehen. Erledigen kann jede Person in ihrer eigenen Liste.</>
+            ) : readOnly ? (
+              <>
+                Du siehst die Pendenzen von <strong className="font-semibold">{data!.person.displayName}</strong> – nur ansehen. Erledigen und
+                verschieben kann {data!.person.displayName} selbst oder der Admin.
+              </>
+            ) : (
+              <>
+                Du siehst die Pendenzen von <strong className="font-semibold">{data!.person.displayName}</strong>. Aktionen gelten für diese Person.
+              </>
+            )}
           </span>
           <Button size="sm" variant="secondary" onClick={() => setFilter({ ...filter, userId: undefined })}>
             Zurück zu meinen
@@ -382,18 +398,17 @@ export default function PendenzenPage() {
               onChange={(e) => setFilter({ ...filter, status: e.target.value as PendenzFilter['status'] })}
               className="w-32"
             />
-            {me.isRealAdmin && (
-              <Select
-                aria-label="Person"
-                options={[
-                  { value: '', label: 'Meine Pendenzen' },
-                  ...(persons.data?.items ?? []).filter((p) => p.id !== me.user.id).map((p) => ({ value: p.id, label: p.displayName })),
-                ]}
-                value={filter.userId ?? ''}
-                onChange={(e) => setFilter({ ...filter, userId: e.target.value || undefined })}
-                className="w-48"
-              />
-            )}
+            <Select
+              aria-label="Person"
+              options={[
+                { value: '', label: 'Meine Pendenzen' },
+                { value: PENDENZ_TEAM, label: 'Ganzes Team' },
+                ...(persons.data?.items ?? []).filter((p) => p.id !== me.user.id).map((p) => ({ value: p.id, label: p.displayName })),
+              ]}
+              value={filter.userId ?? ''}
+              onChange={(e) => setFilter({ ...filter, userId: e.target.value || undefined })}
+              className="w-48"
+            />
             <div className="ml-auto flex items-center gap-2">
               {anyFilter && (
                 <Button variant="ghost" size="md" icon={X} onClick={resetFilter} kbd="R">

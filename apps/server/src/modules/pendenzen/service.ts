@@ -5,6 +5,7 @@
  */
 import {
   formatZurich,
+  PENDENZ_TEAM,
   RESULT_GROUP_LABELS,
   type CrmTask,
   type Lead,
@@ -66,6 +67,25 @@ export async function resolveTarget(db: Db, auth: RequestAuth, userId: string | 
   if (!user) throw notFound('Person nicht gefunden');
   const roles = await db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId));
   return { id: user.id, displayName: user.displayName, roles: roles.map((r) => r.role as Role), crmUserId: user.crmUserId, isSelf: false };
+}
+
+/**
+ * Whose Pendenzen are shown on the list page. Unlike {@link resolveTarget} (used by every action), any logged-in
+ * person may LOOK at a colleague's Pendenzen; the result is read-only unless it's the own list or a real admin.
+ */
+export async function resolveViewTarget(db: Db, auth: RequestAuth, userId: string | undefined | null): Promise<TargetPerson> {
+  if (!userId || userId === auth.user.id) return resolveTarget(db, auth, null);
+  const [user] = await db.select().from(users).where(and(eq(users.id, userId), eq(users.isActive, true)));
+  if (!user) throw notFound('Person nicht gefunden');
+  const roles = await db.select({ role: userRoles.role }).from(userRoles).where(eq(userRoles.userId, userId));
+  return { id: user.id, displayName: user.displayName, roles: roles.map((r) => r.role as Role), crmUserId: user.crmUserId, isSelf: false };
+}
+
+/** Actions that change something – removed from the list when it is shown read-only. */
+const MUTATING_ACTIONS = new Set<PendenzEntry['actions'][number]>(['complete', 'reschedule', 'mark_done', 'snooze']);
+
+function toReadOnly(item: PendenzEntry): PendenzEntry {
+  return { ...item, actions: item.actions.filter((a) => !MUTATING_ACTIONS.has(a)) };
 }
 
 export async function listPersons(db: Db): Promise<PendenzPerson[]> {
@@ -497,21 +517,51 @@ export async function listPendenzen(
   filter: PendenzFilter,
   now: Date,
 ): Promise<PendenzenResponse> {
-  const person = await resolveTarget(db, auth, filter.userId);
   const status = filter.status ?? 'open';
-  const { items, warnings } = await collectPendenzen(db, adapters, person, now, { includeDone: status !== 'open' });
-  const coldcallerFirst = person.roles.includes('coldcaller');
+  const team = filter.userId === PENDENZ_TEAM;
+
+  let items: PendenzEntry[];
+  let warnings: string[];
+  let person: PendenzPerson;
+  let coldcallerFirst: boolean;
+  let readOnly: boolean;
+
+  if (team) {
+    // Everyone's Pendenzen in one list. Shared items (a first meeting of Manuel + Nico) appear once with both names.
+    const persons = await listPersons(db);
+    const merged = new Map<string, PendenzEntry>();
+    const warningSet = new Set<string>();
+    for (const p of persons) {
+      const target = await resolveViewTarget(db, auth, p.id);
+      const res = await collectPendenzen(db, adapters, target, now, { includeDone: status !== 'open' });
+      res.warnings.forEach((w) => warningSet.add(w));
+      for (const item of res.items) {
+        const existing = merged.get(item.id);
+        if (existing) existing.ownerNames!.push(p.displayName);
+        else merged.set(item.id, { ...item, ownerNames: [p.displayName] });
+      }
+    }
+    // «für Manuel & Nico» in the row (the web shows ownerName for foreign lists).
+    const names = (n: string[]) => (n.length > 1 ? `${n.slice(0, -1).join(', ')} & ${n[n.length - 1]}` : n[0]);
+    items = [...merged.values()].map((i) => ({ ...i, ownerName: names(i.ownerNames!) }));
+    warnings = [...warningSet];
+    person = { id: PENDENZ_TEAM, displayName: 'Ganzes Team', roles: [] };
+    coldcallerFirst = false;
+    // No single person to act for (actions carry one userId) → the team view is read-only, also for admins.
+    readOnly = true;
+  } else {
+    const target = await resolveViewTarget(db, auth, filter.userId);
+    ({ items, warnings } = await collectPendenzen(db, adapters, target, now, { includeDone: status !== 'open' }));
+    person = { id: target.id, displayName: target.displayName, roles: target.roles };
+    coldcallerFirst = target.roles.includes('coldcaller');
+    readOnly = !target.isSelf && !auth.isRealAdmin;
+  }
+  if (readOnly) items = items.map(toReadOnly);
+
   const { items: filtered, counts } = applyFilter(items, { ...filter, status });
   const dueCounts = Object.fromEntries(PENDENZ_DUES.map((d) => [d, 0])) as Record<PendenzDue, number>;
   for (const i of applyFilter(items, { ...filter, status, due: undefined }).items) dueCounts[i.due] += 1;
-  return {
-    items: sortPendenzen(filtered, coldcallerFirst),
-    counts,
-    dueCounts,
-    person: { id: person.id, displayName: person.displayName, roles: person.roles },
-    coldcallerFirst,
-    warnings,
-  };
+  return { items: sortPendenzen(filtered, coldcallerFirst), counts, dueCounts, person, readOnly, coldcallerFirst, warnings };
 }
 
 /** Header counter «offene Pendenzen» for the current user (respects «Ansicht als»). */

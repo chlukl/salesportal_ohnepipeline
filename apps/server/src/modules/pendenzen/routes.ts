@@ -1,11 +1,11 @@
 /**
  * /api/pendenzen – Startseite für alle Rollen: Aufgaben, Termine, Briefings, Absagen, unabgeschlossene Anrufe,
- * Analysen zur Freigabe, Freigaben, Fehler (INTENT 6.16). Fremde Pendenzen nur für Admins (403 sonst).
+ * Analysen zur Freigabe, Freigaben, Fehler (INTENT 6.16). Fremde Pendenzen darf jede Rolle ansehen (nur lesen); bearbeiten nur eigene, Admin alle.
  */
 import type { PendenzenResponse, PendenzPerson } from '@sales-portal/shared';
 import type { FastifyPluginAsyncZod } from 'fastify-type-provider-zod';
 import { z } from 'zod';
-import { ROLESETS, requireRealAdmin, requireRoles } from '../../auth/rbac';
+import { ROLESETS, requireRoles } from '../../auth/rbac';
 import { adaptersFor } from '../../integrations';
 import { crmId, csv, isoDateTime } from '../../lib/zod';
 import { PENDENZ_DUES, PENDENZ_KINDS } from './rules';
@@ -29,7 +29,7 @@ export const PendenzFilterSchema = z
   .object({
     kinds: z.array(z.enum(PENDENZ_KINDS as [string, ...string[]])).max(20).optional(),
     due: z.array(z.enum(PENDENZ_DUES as [string, ...string[]])).max(10).optional(),
-    userId: z.string().uuid().optional(),
+    userId: z.union([z.string().uuid(), z.literal('team')]).optional(),
     company: z.string().max(100).optional(),
     origins: z.array(z.enum(ORIGINS)).max(5).optional(),
     status: z.enum(STATUSES).optional(),
@@ -40,7 +40,7 @@ export const PendenzFilterSchema = z
 const PendenzQuerySchema = z.object({
   kinds: csv(z.enum(PENDENZ_KINDS as [string, ...string[]]), 20),
   due: csv(z.enum(PENDENZ_DUES as [string, ...string[]]), 10),
-  userId: z.string().uuid().optional(),
+  userId: z.union([z.string().uuid(), z.literal('team')]).optional(),
   company: z.string().max(100).optional(),
   origins: csv(z.enum(ORIGINS), 5),
   status: z.enum(STATUSES).optional(),
@@ -56,8 +56,8 @@ export const pendenzenRoutes: FastifyPluginAsyncZod = async (app) => {
       listPendenzen(app.db, adaptersFor(request), request.auth!, request.query as Parameters<typeof listPendenzen>[3], app.ctx.now()),
   );
 
-  /** Persons for the admin person filter (real admins, also during «Ansicht als»). */
-  app.get('/persons', { config: requireRealAdmin() }, async (): Promise<{ items: PendenzPerson[] }> => ({ items: await listPersons(app.db) }));
+  /** Persons for the person filter – everyone may look at colleagues' Pendenzen (read-only, edit only own / admin). */
+  app.get('/persons', { config: requireRoles(...ROLESETS.all) }, async (): Promise<{ items: PendenzPerson[] }> => ({ items: await listPersons(app.db) }));
 
   // ---- CRM tasks: erledigen / verschieben ---------------------------------------------------------------------------
   app.post(

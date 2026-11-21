@@ -97,16 +97,43 @@ describe('GET /api/pendenzen – per person and role (6.16)', () => {
   });
 });
 
-describe('object-level authorization: other persons only for admins', () => {
-  it('non-admins get 403 for another person', async () => {
-    expect((await get('markus', `/api/pendenzen?userId=${MANUEL.id}`)).statusCode).toBe(403);
-    expect((await get('manuel', `/api/pendenzen?userId=${MARKUS.id}`)).statusCode).toBe(403);
-    expect((await get('nico', `/api/pendenzen?userId=${MARKUS.id}`)).statusCode).toBe(403);
-    expect((await get('markus', '/api/pendenzen/persons')).statusCode).toBe(403);
+describe('object-level authorization: everyone may look, only own (admin: all) can be edited', () => {
+  it('non-admins may look at another person – read-only, without mutating actions', async () => {
+    for (const [who, other] of [['markus', MANUEL], ['manuel', MARKUS], ['nico', MARKUS]] as const) {
+      const res = await get(who, `/api/pendenzen?userId=${other.id}`);
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as PendenzenResponse;
+      expect(body.person.id).toBe(other.id);
+      expect(body.readOnly).toBe(true);
+      for (const item of body.items) {
+        expect(item.actions.filter((a) => ['complete', 'reschedule', 'mark_done', 'snooze'].includes(a))).toEqual([]);
+      }
+    }
+    const markusView = (await get('manuel', `/api/pendenzen?userId=${MARKUS.id}`)).json() as PendenzenResponse;
+    expect(ids(markusView)).toContain(`call:${IDS.sessionUnfinished}`);
+    const persons = (await get('markus', '/api/pendenzen/persons')).json().items as { id: string }[];
+    expect(persons.map((p) => p.id)).toContain(MANUEL.id);
   });
 
-  it('own id is fine for everybody', async () => {
-    expect((await get('markus', `/api/pendenzen?userId=${MARKUS.id}`)).statusCode).toBe(200);
+  it('own list is editable for everybody', async () => {
+    const res = await get('markus', `/api/pendenzen?userId=${MARKUS.id}`);
+    expect(res.statusCode).toBe(200);
+    expect((res.json() as PendenzenResponse).readOnly).toBe(false);
+    expect(((await get('markus', '/api/pendenzen')).json() as PendenzenResponse).readOnly).toBe(false);
+  });
+
+  it('team view: all persons in one list, shared items once with all owner names, always read-only', async () => {
+    for (const who of ['markus', 'lukas'] as const) {
+      const res = await get(who, '/api/pendenzen?userId=team');
+      expect(res.statusCode).toBe(200);
+      const body = res.json() as PendenzenResponse;
+      expect(body.person.id).toBe('team');
+      expect(body.readOnly).toBe(true);
+      expect(ids(body)).toContain(`call:${IDS.sessionUnfinished}`);
+      expect(new Set(ids(body)).size).toBe(ids(body).length);
+      expect(body.items.every((i) => !!i.ownerName && (i.ownerNames?.length ?? 0) >= 1)).toBe(true);
+      expect(body.items.some((i) => i.actions.includes('complete') || i.actions.includes('mark_done'))).toBe(false);
+    }
   });
 
   it('admin sees the Pendenzen of Markus via the person filter', async () => {
@@ -114,6 +141,7 @@ describe('object-level authorization: other persons only for admins', () => {
     expect(res.statusCode).toBe(200);
     const body = res.json() as PendenzenResponse;
     expect(body.person).toMatchObject({ id: MARKUS.id, displayName: 'Markus', roles: ['coldcaller'] });
+    expect(body.readOnly).toBe(false);
     expect(ids(body)).toContain(`call:${IDS.sessionUnfinished}`);
     const persons = (await get('lukas', '/api/pendenzen/persons')).json().items as { id: string }[];
     expect(persons.map((p) => p.id)).toContain(MARKUS.id);

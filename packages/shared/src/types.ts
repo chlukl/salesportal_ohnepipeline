@@ -1400,13 +1400,18 @@ export interface PendenzEntry extends PendenzItem {
   actions: PendenzAction[];
   taskType: CrmTaskType | null;
   snoozedUntil: IsoDateTime | null;
+  /** Team view only: whose Pendenz this is (several names when shared, e.g. a first meeting of Manuel and Nico). */
+  ownerNames?: string[];
 }
+
+/** `userId` value for the combined view of all persons. */
+export const PENDENZ_TEAM = 'team' as const;
 
 export interface PendenzFilter {
   kinds?: PendenzKind[];
   due?: PendenzDue[];
-  /** Admin only (and «Ansicht als»): Pendenzen of another person. */
-  userId?: Uuid;
+  /** Empty = own Pendenzen; a person's id or {@link PENDENZ_TEAM}. Everyone may look, only own (admin: all) can be edited. */
+  userId?: Uuid | typeof PENDENZ_TEAM;
   company?: string;
   origins?: PendenzOrigin[];
   status?: 'open' | 'done' | 'all';
@@ -1424,7 +1429,10 @@ export interface PendenzenResponse {
   counts: Record<PendenzKind, number>;
   /** Per Fälligkeit, after all filters except `due`. */
   dueCounts: Record<PendenzDue, number>;
+  /** For the team view: id {@link PENDENZ_TEAM}, name «Ganzes Team». */
   person: PendenzPerson;
+  /** Someone else's (or the team's) Pendenzen without admin rights: only open lead / briefing, no erledigen / verschieben. */
+  readOnly: boolean;
   /** Person-specific ordering applied (coldcaller: unfinished calls, due callbacks and tasks first). */
   coldcallerFirst: boolean;
   /** Sources that could not be loaded (e.g. CRM not reachable) – shown as a calm hint, the rest still works. */
