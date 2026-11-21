@@ -1,6 +1,6 @@
 # Intent: Sales-Portal (vom CRM-Lead zum Termin) – Version 2
 
-Stand 20.11.2026 (V2.2) · Grundlage: Intent «Sales-Portal (vom Lead zum Termin)» vom 07.11.2026 (Nico), Lukas' Vorgaben vom 17.11.2026, Ergänzungen und Review vom 20.11.2026.
+Stand 21.11.2026 (V2.3) · Grundlage: Intent «Sales-Portal (vom Lead zum Termin)» vom 07.11.2026 (Nico), Lukas' Vorgaben vom 17.11.2026, Ergänzungen und Review vom 20.11.2026, Änderungswünsche nach dem ersten Prototyp vom 21.11.2026.
 Dieses Dokument beschreibt das **Was und Warum**. Framework und Code entscheidet die Entwicklung. Basis ist das bestehende Portal
 (Abschnitt 9), das auf diesen Intent angepasst wird.
 
@@ -47,6 +47,20 @@ Dieses Dokument beschreibt das **Was und Warum**. Framework und Code entscheidet
 | CRM-Push | Konfliktprüfung: was seit dem Entwurf im CRM geändert wurde, wird angezeigt statt überschrieben | 6.9 |
 | Echter Kontakt | eine Definition für «Letzter Kontakt» und die Aufgaben-Regeln | 5 |
 | Etappen | Etappe 1 in 1a (Coldcall) und 1b (Übersicht) geteilt; Rückruf-Erkennung separat | 10 |
+
+**Ergänzungen V2.3 (21.11.2026, nach dem ersten Prototyp, Entscheide Lukas):**
+
+| Thema | Neu | Abschnitt |
+|---|---|---|
+| Anrufen aus der Liste | Klick auf die Telefonnummer (oder «Anrufen», Taste A) wählt direkt in der Anrufliste; beim Wählen kein Wechsel auf den Lead | 4.2, 6.1, 6.2 |
+| Nicht erreicht | ein Klick, Markus bleibt in der Liste, der nächste Lead ist markiert | 6.2 |
+| Gespräch | erst bei «Verbunden» öffnet der Arbeitsplatz im Anrufmodus als grosses Fenster **über** der Liste; die Liste bleibt mit Filter, Position und Auswahl bestehen; nach der Freigabe zurück in die Liste | 6.2 |
+| Telefon-Spalte | steht direkt neben der Ansprechperson, als Anruf-Knopf erkennbar | 6.1 |
+| Pendenzen | Standard «Meine»; jede Rolle kann zusätzlich Pendenzen von Kollegen und vom ganzen Team **ansehen** (nur lesen); bearbeiten nur eigene, Admin alle | 3, 6.16 |
+| Design | mehrere Designs wählbar (Standard, **Kallysoft Corporate Design** nach kallysoft.ch, Graphit, Sand), jedes hell / dunkel / wie System, pro Person; bleibt clean | 6.0 |
+| Sprache | alle Texte des Portals und der Umsetzung (auch Rückmeldungen, Zusammenfassungen) auf Deutsch (CH, «ss») | 6.0, 14 |
+| Zugang Entra | Zertifikat statt Client-Secret, auch für die SSO-Anmeldung | 8 |
+| Umsetzung | Vorgaben für Prototypen und weitere Test-Apps (Stack, Demo-Modus, Security, Vorgehen) und Stand des Prototyps | 14, 15 |
 
 ---
 
@@ -107,6 +121,9 @@ Das Portal ist erfolgreich, wenn:
 | Admin | Lukas | Rollen vergeben und ändern, Ergebnisgruppen und Feld-Zuordnung pflegen, Vorlagen (Betreff, Einladung, Mails), Terminregeln, Protokoll, Fehler |
 
 - Lukas hat **alle Rollen** (zum Testen) und kann im Portal eine Rolle «ansehen als» wählen, ohne die Rolle zu wechseln.
+- **Pendenzen anderer ansehen** (Entscheid Lukas 21.11.2026): Jede Rolle darf die Pendenzen einer Kollegin, eines Kollegen oder des
+  ganzen Teams **ansehen** (nur lesen). Erledigen und verschieben kann nur die Person selbst; der Admin darf alles. Die Anrufhistorie
+  fremder Personen bleibt dem Admin vorbehalten.
 - Anmeldung über Microsoft Entra ID (SSO, bestehende Konten). Rollen liegen im Portal, nicht im CRM.
 
 ---
@@ -148,8 +165,10 @@ NACH DEM TERMIN-BUCHEN             ▼
 
 **Markus (Coldcaller)**
 1. Öffnet das Portal: Die Pendenzen (6.16) zeigen Unabgeschlossenes, fällige Rückrufe und Aufgaben, die Anrufhistorie (6.15) verpasste Rückrufe. Danach arbeitet er die Anrufliste nach seinem gespeicherten Filter ab (z. B. Grade A/B, 20–249 MA, Bau ausgenommen).
-2. Wählt einen Lead und klickt «Anrufen». Beim Wählen sieht er nur Name, Firma, Nummer und Anrufgrund. Nimmt jemand ab, klickt er
-   «Verbunden» und hat alle Infos vor sich; nimmt niemand ab, ein Klick «Nicht erreicht» und weiter zum nächsten Lead.
+2. Schaut sich die Leads in der Liste an und klickt direkt auf die **Telefonnummer** (oder «Anrufen» bzw. Taste A). Er bleibt dabei in
+   der Liste; eine schmale Leiste zeigt nur Name, Firma, Nummer und Anrufgrund. Nimmt jemand ab, klickt er «Verbunden», und der
+   Arbeitsplatz mit allen Infos öffnet sich als Fenster über der Liste; nimmt niemand ab, ein Klick «Nicht erreicht», und der nächste
+   Lead in der Liste ist markiert.
 3. Während des Gesprächs: Das Portal ist im Anrufmodus (6.2); Notizen, bei Interesse Terminplaner im Seitenfenster, Slot wählen, Teilnehmende ergänzen.
 4. Nach dem Gespräch: Ergebnisgruppe klicken, Vorschau prüfen, freigeben. Nächster Lead. Die KI-Analysen prüft er später gesammelt (6.4).
 
@@ -202,12 +221,33 @@ Das Portal muss sich ohne Schulung erschliessen. Markus soll nie suchen müssen,
 - **Schnell:** nächster Lead und Seitenwechsel ohne spürbare Wartezeit, Daten im Hintergrund vorladen.
 - **Nichts geht verloren:** Notizen speichern laufend als Entwurf, auch bei Fehler oder geschlossenem Fenster; «Rückgängig» statt vieler Sicherheitsabfragen.
 - **Tastatur:** Kürzel für die häufigsten Aktionen, Übersicht mit «?».
+- **So wenig Klicks wie nötig** (Lukas 21.11.2026): Bei jedem Schritt prüfen, ob ein Klick oder ein Seitenwechsel wegfallen kann.
+  Beispiel: Anrufen direkt aus der Liste, ohne vorher den Lead zu öffnen (6.2).
+- **Designs wählbar** (Lukas 21.11.2026): Im Benutzermenü wählt jede Person ein Design und hell / dunkel / wie System; die Wahl gilt pro
+  Person und Gerät. Alle Designs bleiben ruhig und clean; sie tauschen nur Grundfarben, Akzent, Ecken und Logo, nie das Layout.
+  Farben mit Bedeutung (Grade, Status, Warnung) sind in allen Designs gleich.
+
+  | Design | Wirkung |
+  |---|---|
+  | Standard | ruhiges Petrol (Voreinstellung) |
+  | **Kallysoft** (Corporate Design nach kallysoft.ch) | Schrift Inter, Titel Navy #0A2540, Text Grau #515151, Akzent Indigo #475ADF mit Hellton #E3E7FF, Blau #1266DA für Info, Pill-Buttons, Logo-Kachel «KS:» anthrazit #333; dunkel in Navy-Tönen |
+  | Graphit | schwarz-weiss, kantiger, sehr schlicht |
+  | Sand | warme Neutraltöne mit Terrakotta |
+
+  Die Farbwerte sind von der Website abgelesen; liegt ein offizieller Styleguide vor, gilt dieser.
+- **Sprache:** Alles auf Deutsch (Schweiz, «ss» statt «ß»), auch Rückmeldungen, Hinweise und Zusammenfassungen.
 - **Leere Zustände erklären den nächsten Schritt** («Keine fälligen Pendenzen – weiter mit der Anrufliste»).
 - **Abnahme mit Markus:** ein Testtag in der Sandbox; jede Stelle, an der er zögert oder sucht, wird vor dem Livegang bereinigt.
 
 ### 6.1 Anrufliste und Filter
 
-Gespeicherte Filter pro Person, Sortierung frei, Spalten wählbar. Vorschläge aus den vorhandenen Daten:
+Gespeicherte Filter pro Person, Sortierung frei, Spalten wählbar.
+
+**Anrufen aus der Liste** (Lukas 21.11.2026): Markus arbeitet die Liste ab, ohne jeden Lead zu öffnen. Die **Telefon-Spalte** steht
+direkt neben der Ansprechperson; ein Klick auf die Nummer startet den Anruf in der Liste (6.2). Ein Klick auf die übrige Zeile öffnet
+den Lead wie bisher. Gesperrte Leads oder Leads ohne gültige Nummer sind nicht anwählbar (Grund als Hinweis).
+
+Vorschläge für Filter aus den vorhandenen Daten:
 
 | Filter | Feld / Quelle | Warum |
 |---|---|---|
@@ -242,11 +282,16 @@ Modernes Design, Kallysoft-Farben, Tastaturkürzel für die häufigsten Aktionen
 
 **Wählen und Anrufmodus:** Die Gesprächsinfos braucht Markus erst, wenn jemand abnimmt. Vorher und bei «Nicht erreicht» lenken sie nur ab.
 
-- **Wählen** (nach Klick «Anrufen»): schmale Leiste mit Name, Funktion, Firma, Nummer und Anrufgrund in einer Zeile (z. B. «Erstkontakt»,
-  «Rückruf vereinbart», «aus Kampagne»), dazu zwei grosse Knöpfe **«Verbunden»** und **«Nicht erreicht»**. «Nicht erreicht» speichert
-  mit einem Klick Telefonaktivität, Anrufstatus und nächsten Versuch (der Klick gilt als Freigabe, weil keine weiteren Lead-Felder
-  betroffen sind) und springt zum nächsten Lead.
-- **Anrufmodus** (nach «Verbunden»): Der Arbeitsplatz wechselt sichtbar und zeigt alles fürs Gespräch:
+- **Wählen** (Klick auf die Telefonnummer in der Anrufliste, «Anrufen» oder Taste A – **direkt in der Liste**, ohne auf den Lead zu
+  wechseln): schmale Leiste über der Liste mit Name, Funktion, Firma, Nummer und Anrufgrund in einer Zeile (z. B. «Erstkontakt»,
+  «Rückruf vereinbart», «aus Kampagne»), dazu zwei grosse Knöpfe **«Verbunden»** und **«Nicht erreicht»** sowie «Abbrechen».
+  «Nicht erreicht» speichert mit einem Klick Telefonaktivität, Anrufstatus und nächsten Versuch (der Klick gilt als Freigabe, weil keine
+  weiteren Lead-Felder betroffen sind); Markus **bleibt in der Liste**, der Lead verschwindet bis zum nächsten Versuch, der nächste
+  Lead ist markiert (Taste A ruft ihn an), «Rückgängig» im Hinweis.
+- **Anrufmodus** (nach «Verbunden»): Der Arbeitsplatz öffnet sich als **grosses Fenster über der Anrufliste** (Entscheid Lukas
+  21.11.2026). Die Liste bleibt dahinter bestehen (Filter, Position, Auswahl). «Zur Liste» (Esc) blendet das Fenster nur aus, das
+  Gespräch läuft weiter, und ein Hinweis «Im Gespräch mm:ss – Gespräch öffnen» holt es zurück. Wird ein Lead ohne Anruf geöffnet
+  (aus Pendenzen, Historie, Suche), erscheint der Arbeitsplatz wie bisher als eigene Seite. Inhalt im Anrufmodus:
 
 | Bereich | Inhalt im Anrufmodus |
 |---|---|
@@ -260,7 +305,8 @@ Modernes Design, Kallysoft-Farben, Tastaturkürzel für die häufigsten Aktionen
 
 Nach dem Klick «Aufgelegt» wechselt das Portal in «Nachbearbeitung»: Ergebnisgruppe wählen, Notiz ergänzen, Vorschau prüfen,
 freigeben. Auf das Transkript von Vera wird **nicht** gewartet; die KI-Analyse folgt später (6.4). Nach der Freigabe ist Markus
-wieder «bereit», und der nächste Lead aus seiner Anrufliste steht da. Teams meldet dem Portal weder Abheben noch Auflegen direkt,
+wieder «bereit», das Gesprächsfenster schliesst sich, und in der Anrufliste ist der nächste Lead markiert. Eine offene Nachbearbeitung
+öffnet sich beim Laden der Liste von selbst wieder, damit kein Anruf ohne CRM-Eintrag liegen bleibt. Teams meldet dem Portal weder Abheben noch Auflegen direkt,
 deshalb die Klicks «Verbunden» und «Aufgelegt» (offene Frage 8).
 
 ### 6.3 Anruf über Teams, Vera, Telefonaktivität
@@ -471,8 +517,13 @@ unabgeschlossene Anrufe, fällige Rückrufe und Aufgaben zuoberst.
 | Freigaben | übrige Entwürfe, die noch nicht ins CRM gepusht sind |
 | Fehler | fehlgeschlagener CRM-Push, nicht gesendete Mail |
 
-- **Filter:** Art, Fälligkeit (überfällig, heute, diese Woche, später), Person (Admin und «Ansicht als»), Firma, Herkunft (Coldcall,
+- **Filter:** Art, Fälligkeit (überfällig, heute, diese Woche, später), Person, Firma, Herkunft (Coldcall,
   Kampagne, andere), Status (offen, erledigt). Filter speicherbar wie in der Anrufliste.
+- **Person** (Entscheid Lukas 21.11.2026): Standard ist «Meine Pendenzen» (was die Person besitzt bzw. was ihr zugeteilt ist). Für
+  **alle Rollen** wählbar: eine bestimmte Kollegin / ein Kollege oder **«Ganzes Team»** (alle Pendenzen in einer Liste, jede Zeile
+  mit «für <Name>», gemeinsame Termine nur einmal, z. B. «für Manuel & Nico»). Fremde und Team-Listen sind **nur zum Ansehen**:
+  Lead und Briefing öffnen ja, erledigen und verschieben nein (der Server verweigert es). Der Admin darf in der Liste einer Person
+  für diese Person handeln; die Team-Liste ist auch für ihn nur zum Lesen. Der Zähler in der Kopfleiste zählt nur die eigenen.
 - **Aktionen direkt in der Liste:** erledigen, verschieben, Lead öffnen, Briefing öffnen. Erledigen schliesst die Aufgabe im CRM;
   sind Lead-Felder betroffen, kommt die Freigabe-Vorschau (6.9).
 
@@ -571,6 +622,9 @@ und Formularfunktionen (intelligentes Einfügen) stehen im Portal nicht zur Verf
   Empfehlung: Mail- und Kalenderrechte trotzdem auf die nötigen Postfächer einschränken (RBAC for Applications), Geheimnis bzw.
   Zertifikat nur als Docker-Secret.
 - **Zugang:** nur im internen Netz bzw. über VPN, Anmeldung per Entra-SSO ohne zusätzliches MFA (Entscheid Lukas 17.11.2026).
+- **Zertifikat statt Secret** (Lukas 21.11.2026): Die Entra-App des Portals nutzt ein Zertifikat (öffentlicher Teil in der App-Registrierung,
+  privater Schlüssel nur als Docker-Secret) – für die Hintergrundaufgaben **und** für die SSO-Anmeldung der Benutzer. Ein Client-Secret
+  ist nicht vorgesehen. Tests gegen die Sandbox erst, wenn das Zertifikat hinterlegt ist; bis dahin Demo-Modus (14).
 - **KI:** Claude, vermutlich über das bestehende Abo (offen). Hinweis: Ein Abo (claude.ai/Team) gilt für Personen, die Claude selbst
   bedienen. Ein Portal, das selbständig Gespräche analysiert und Mails entwirft, braucht einen **API-Zugang** (Claude Console oder
   Microsoft Foundry) mit Datenschutzvertrag. Richtwert nach den Preisen in `CRM-Analyse.md`: rund $0.05–0.10 pro Anrufanalyse mit
@@ -652,6 +706,11 @@ Abgleich über Betreff), damit keine Blocker oder Absagemeldungen verloren gehen
 | CRM-Push (20.11.) | Konflikte anzeigen statt überschreiben |
 | Briefing (20.11.) | bleibt: Kalendereintrag direkt auf dem Termin für alles Ad-hoc, Mail 1 Woche vorher nur bei Vorbereitung (z. B. Prototyp) |
 | Sterneintrag (20.11.) | keine eigene Prüfung im Portal |
+| Anrufen aus der Liste (21.11.) | Klick auf die Telefonnummer wählt in der Liste; «Nicht erreicht» bleibt in der Liste; Anrufmodus als Fenster über der Liste; Telefon-Spalte neben der Ansprechperson |
+| Pendenzen anderer (21.11.) | Standard «Meine»; jede Rolle darf Kollegen und Team ansehen, nur lesen; bearbeiten nur eigene, Admin alle |
+| Designs (21.11.) | Standard, Kallysoft (Corporate Design), Graphit, Sand; je hell / dunkel / System; pro Person; clean |
+| Zertifikat (21.11.) | Entra-Zugang per Zertifikat, auch für die SSO-Anmeldung, kein Client-Secret |
+| Sprache (21.11.) | alles auf Deutsch (CH), auch Rückmeldungen und Zusammenfassungen |
 
 **Noch offen** (blockiert den Start nicht, Lukas 17.11.2026: «ich nehms mal so»; die Vorschläge gelten bis auf Weiteres):
 
@@ -700,3 +759,88 @@ Abgleich über Betreff), damit keine Blocker oder Absagemeldungen verloren gehen
 - Listen vorbereiten, Anreichern, Import (Vorstufe, Abschnitt 4.1) – später evtl. als Admin-Seite
 - Lemlist-Kampagnen, Flow «Offerte an CRM» (bleiben, Ergebnisse erscheinen im Verlauf)
 - Landingpages (KI-Check), ERP-Invoice, Kally-Design (weitere Vorhaben aus V1)
+
+---
+
+## 14. Umsetzungsvorgaben für Prototypen und weitere Test-Apps (ab V2.3)
+
+Dieser Abschnitt hält fest, wie der erste Prototyp (Repository `chlukl/salesportal_ohnepipeline`) gebaut wurde, damit weitere
+Test-Apps, zum Beispiel mit anderen Pipelines, von derselben Ausgangslage starten. Er beschreibt das **Wie für Prototypen**; die
+Fachlogik oben bleibt massgebend. Abweichungen sind erlaubt, aber im Architektur-Vertrag der jeweiligen App festzuhalten.
+
+### 14.1 Ziel jeder Test-App
+
+- Läuft **sofort lokal ohne externe Systeme** (Demo-Modus mit erfundenen, realistischen Daten) und später **unverändert in Docker** auf
+  dem internen Server gegen Sandbox, dann Prod.
+- Alle externen Systeme (CRM, Kalender/Mail, KI, Transkripte, Telefonie) hinter **Adaptern** mit `mock` und `live`; Umschaltung per
+  Umgebungsvariable. Die Umgebung (Demo / Sandbox / Prod) ist im Portal immer sichtbar.
+- Man kann jede Rolle ausprobieren (Demo-Login mit Testpersonen). In Produktion startet die App mit Demo-Login oder Mock-Daten nicht.
+
+### 14.2 Technik (bewährt im Prototyp)
+
+| Teil | Wahl |
+|---|---|
+| Sprache, Struktur | TypeScript (strict), npm-Workspaces: `packages/shared` (Typen, Geschäftsregeln), `apps/server`, `apps/web` |
+| Server | Node.js 24, Fastify, zod-Validierung auf jedem Endpunkt, Hintergrund-Worker (DB-Job-Tabelle) |
+| Datenbank | Postgres in Docker; lokal PGlite (eingebettet, keine Installation), gleiches Schema, Migrationen beim Start |
+| Web | React, Vite, TanStack Query, Tailwind; Design-Tokens an **einer** Stelle (CSS-Variablen), mehrere Designs (6.0) |
+| Tests | vitest; Pflicht für jede Geschäftsregel (Telefonnummern, Ergebnisgruppen, Aufgaben-Regeln, Slots/Vorschläge, Sperren) |
+| KI | Claude API (Opus für Analyse/Briefing, Sonnet für Mail-Entwürfe), Structured Output, KI liefert nur Vorschläge |
+| Betrieb | Multi-Stage-Dockerfile (non-root), `docker-compose` mit App, Worker, Postgres, Docker-Secrets |
+| Lokal starten | `npm install`, dann `node scripts/dev.mjs` → http://localhost:5173 |
+
+### 14.3 Sicherheit (Mindeststandard, nicht verhandelbar)
+
+- Entra-SSO (OIDC mit PKCE), Zugang per **Zertifikat**; serverseitige Sessions (httpOnly, Secure, Ablauf, Rotation beim Login).
+- CSRF-Schutz auf allen ändernden Anfragen; strikte CSP ohne externe Skripte oder CDNs; Rate-Limits.
+- Rollen auf **jedem** Endpunkt, Standard = verweigert; Zugriff auf fremde Daten nur, wo die Rolle es erlaubt (serverseitig geprüft,
+  nicht nur ausgeblendet). «Ansicht als» erweitert nie Rechte.
+- Jede CRM-Änderung nur nach Freigabe (alt → neu) mit Konfliktprüfung; Protokoll wer, wann, alt, neu.
+- Secrets nur über Umgebung bzw. `*_FILE` (Docker-Secrets), nie im Repository; Logs ohne Personendaten und Tokens.
+- KI-Eingaben (Transkript, CRM-Text, Website) gelten als nicht vertrauenswürdig; Website-Recherche mit SSRF-Schutz.
+- Transkripte nur im Portal, mit Löschfrist; ins CRM nur die Analyse.
+
+### 14.4 Bedienung (gilt für jede Test-App)
+
+- Bedienkonzept 6.0: ein klarer nächster Schritt pro Seite, Status oben, Alltagssprache, leere Zustände erklären den nächsten Schritt.
+- **So wenig Klicks wie nötig**; keine Seitenwechsel, wo ein Fenster über der Liste reicht (Beispiel 6.2).
+- Optimiert ab 1'600 px, nutzbar ab 1'280 px; Tastaturkürzel mit Übersicht auf «?».
+- Designs wählbar (Standard, Kallysoft, Graphit, Sand), jeweils hell / dunkel / System.
+- Alles auf Deutsch (CH).
+
+### 14.5 Vorgehen beim Bauen (bewährt)
+
+1. **Architektur-Vertrag** schreiben (`docs/ARCHITECTURE.md`): Stack, Module mit Dateibesitz, Sicherheitsregeln, Adapter-Verträge.
+2. **Fundament** von einem Agenten bauen lassen und selbst prüfen (Typecheck, Tests, Login, CSRF, Rollen).
+3. **Module parallel** durch mehrere Umsetzer-Agenten, jeder nur in seinen Dateien; gemeinsame Dateien nur ergänzen.
+4. **Integration** und End-to-End-Durchlauf über die Schnittstellen.
+5. **Drei unabhängige Reviews** (Korrektheit, Security, Spec/Bedienung), möglichst mit zwei verschiedenen Modellen; dann Fixes pro
+   Bereich und Schlussprüfung (Typecheck, Tests, Build, Durchlauf).
+6. **Browser-Test** der wichtigsten Abläufe in jeder Rolle; erst danach committen und nach GitHub pushen.
+
+### 14.6 Andere Pipelines
+
+Die Vorstufe (4.1: Liste nach ICP, Anreicherung, Import) ist bewusst **nicht** Teil dieses Portals. Eine Test-App mit einer anderen
+Pipeline ersetzt nur diesen Teil bzw. die Datenquelle hinter dem CRM-Adapter; Anrufliste, Anruf, Freigabe, Pendenzen, Termine und
+Dashboard bleiben gleich. Was die andere Pipeline liefern muss: Leads mit den Feldern aus 6.1 und 6.5, Lead-Score und KI-Bewertung
+(`kls_leadscore`, `kls_ki_bewertung`), Telefonnummern im einheitlichen Format (6.19), Kampagnen-Zugehörigkeit (6.17).
+
+## 15. Stand des Prototyps (21.11.2026) und offene Punkte
+
+**Umgesetzt im Demo-Modus** (Repository `chlukl/salesportal_ohnepipeline`, Branch `main`): Etappen 0 bis 5 inklusive Anrufen aus der
+Liste mit Gesprächsfenster, Ergebnisgruppen mit Freigabe und Konfliktprüfung, Pendenzen (eigene, Kollegen, Team), Anrufhistorie mit
+Rückruf-Suche, Termin buchen mit 3 Vorschlägen und Blockern, Absage-Erkennung, KI-Analysen und Briefings (Beispieltexte ohne
+API-Schlüssel), Dashboard, Admin, vier Designs. Rund 580 automatische Tests.
+
+**Offen für den echten Betrieb:**
+
+| # | Punkt |
+|---|---|
+| A | SSO-Anmeldung per Zertifikat einbauen (heute nur Client-Secret; Hintergrundaufgaben können Zertifikat schon) |
+| B | Dataverse-Anbindung vervollständigen: Aufgaben, Rückruf-Suche, Telefonate, neue Filter; Buchung in `kls_buchung` schreiben |
+| C | CRM-Codes gegen die Sandbox prüfen (alle `kls_anrufergebnis`-Werte, Statuscodes Austausch/Zweitkontakt sind geschätzt) |
+| D | Vera-Weg klären und Webhook einschalten (offene Fragen 2 und 9) |
+| E | Claude-API-Schlüssel mit Kostendeckel hinterlegen (offene Frage 3) |
+| F | Docker auf dem Server erstmals starten (bisher nicht ausgeführt), zuerst mit Demo-Daten, dann Sandbox |
+| G | Feiertage bei Arbeitstagen (Aufgaben-Regeln, Nachfassen) berücksichtigen |
+| H | Testtag mit Markus in der Sandbox (6.0) |
