@@ -58,7 +58,10 @@ function bookingPayload(lead: Lead, start: string, extra: Record<string, unknown
 }
 
 async function book(lead: Lead, weekOffset = 0, extra: Record<string, unknown> = {}): Promise<{ booking: Booking; changeSetId: string }> {
-  const { slots } = await getSlots(markus, addDaysIso(nextMonday(), 7 * weekOffset));
+  // The demo seed has full vacation weeks (relative to today) – take the first week from `weekOffset` with free slots,
+  // otherwise the test depends on the weekday it runs on.
+  let slots: Slot[] = [];
+  for (let w = weekOffset; w < weekOffset + 4 && !slots.length; w++) slots = (await getSlots(markus, addDaysIso(nextMonday(), 7 * w))).slots;
   expect(slots.length).toBeGreaterThan(0);
   const res = await t.app.inject({ method: 'POST', url: '/api/scheduling/bookings', headers: markus.headers, payload: bookingPayload(lead, slots[0].start, extra) });
   expect(res.statusCode, res.body).toBe(201);

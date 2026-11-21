@@ -50,6 +50,15 @@ async function slots(from: string, extraCall = false, days = 5): Promise<Slot[]>
   return res.json().slots;
 }
 
+/** First free slot from week `offset` on – the demo seed has full vacation weeks relative to today. */
+async function firstFreeSlot(offset: number): Promise<Slot> {
+  for (let w = offset; w < offset + 4; w++) {
+    const [s] = await slots(week(w));
+    if (s) return s;
+  }
+  throw new Error(`no free slot in weeks ${offset}–${offset + 3}`);
+}
+
 function payload(lead: Lead, start: string, extra: Record<string, unknown> = {}) {
   return {
     leadId: lead.leadid,
@@ -152,7 +161,7 @@ describe('during a call: one follow-up task, fields only with the call result', 
   });
 
   it('callSessionId must be an own call of the same lead', async () => {
-    const [s] = await slots(week(2));
+    const s = await firstFreeSlot(2);
     const unknown = await post('/api/scheduling/bookings', payload(leads[2], s.start, { callSessionId: '00000000-0000-4000-8000-000000000999' }));
     expect(unknown.status).toBe(404);
     const callId = await startCall(leads[2]);
