@@ -126,15 +126,18 @@ export function useLeadCall(leadId: string, initial: CallSession | null, handler
       setCall(c);
       syncCallState(c);
       queryClient.setQueryData(['calls', 'active'], { call: isRunning(c) ? c : null });
-      queryClient.setQueryData<{ activeCall: CallSession | null }>(['workspace', leadId], (ws) => (ws ? { ...ws, activeCall: isRunning(c) ? c : null } : ws));
+      // The call's own lead (the Anrufliste starts calls for any of its rows with one hook).
+      const lid = c?.leadId ?? leadId;
+      if (lid) queryClient.setQueryData<{ activeCall: CallSession | null }>(['workspace', lid], (ws) => (ws ? { ...ws, activeCall: isRunning(c) ? c : null } : ws));
     },
     [leadId, queryClient],
   );
   const onError = (err: unknown) => toast.error(errorMessage(err));
 
   const start = useMutation({
-    mutationFn: (arg?: string | null | { phoneE164?: string | null; override?: { reason: string } | null }) =>
-      typeof arg === 'object' && arg !== null ? callApi.start(leadId, arg.phoneE164, arg.override) : callApi.start(leadId, arg),
+    /** `leadId` in the object form calls another lead than the hook's (a row of the Anrufliste). */
+    mutationFn: (arg?: string | null | { leadId?: string; phoneE164?: string | null; override?: { reason: string } | null }) =>
+      typeof arg === 'object' && arg !== null ? callApi.start(arg.leadId ?? leadId, arg.phoneE164, arg.override) : callApi.start(leadId, arg),
     onSuccess: (res) => {
       apply(res.call);
       openDialTarget(res.dial);
@@ -166,6 +169,37 @@ export function useLeadCall(leadId: string, initial: CallSession | null, handler
   });
   const busy = start.isPending || connected.isPending || hangup.isPending || notReached.isPending || abandon.isPending;
   return { call, setCall: apply, start, connected, hangup, abandon, vera, notReached, busy };
+}
+
+const WEEKDAYS: Record<string, string> = { Mo: 'Mo', Tu: 'Di', We: 'Mi', Th: 'Do', Fr: 'Fr', Sa: 'Sa', Su: 'So' };
+
+/**
+ * Toast after «Nicht erreicht» with «Rückgängig» (the call goes back to «wählt») and – after several attempts – the hint
+ * on a Use-Case-Mail. Shared by the Lead-Arbeitsplatz and the Anrufliste; each decides what «Rückgängig» shows.
+ */
+export function notReachedToast(res: NotReachedResponse, opts: { onUndone: (call: CallSession) => void; onMail: () => void }): void {
+  const callId = res.call.id;
+  toast.success('Nicht erreicht – gespeichert', {
+    description: `Neuer Versuch ab ${formatZurich(res.nextAttemptAt, 'EEEEEE HH:mm').replace(/^\w\w/, (d) => WEEKDAYS[d] ?? d)} Uhr`,
+    action: {
+      label: 'Rückgängig',
+      onClick: () =>
+        void callApi
+          .undoNotReached(callId)
+          .then((r) => {
+            opts.onUndone(r.call);
+            toast.info('Rückgängig gemacht – der Anruf ist wieder offen');
+          })
+          .catch((err) => toast.error(errorMessage(err))),
+    },
+  });
+  if (res.suggestMail) {
+    toast.info(`${res.attempts}× nicht erreicht in ${res.windowDays} Tagen`, {
+      description: 'Vielleicht klappt es mit einer Use-Case-Mail.',
+      action: { label: 'Mail vorbereiten', onClick: opts.onMail },
+      duration: 12_000,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------------
@@ -340,7 +374,7 @@ export interface DialBarProps {
 export function DialBar({ call, lead, busy, onConnected, onNotReached, onAbandon }: DialBarProps) {
   const elapsed = useElapsed(ms(call.dialedAt));
   return (
-    <div className="animate-fade-up sticky top-[calc(var(--kls-header-h)+8px)] z-20 mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-call-dialing/40 bg-surface px-5 py-4 shadow-md">
+    <div className="animate-fade-up sticky top-[calc(var(--ws-top)+8px)] z-20 mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-lg border border-call-dialing/40 bg-surface px-5 py-4 shadow-md">
       <div className="flex min-w-0 flex-1 items-center gap-4">
         <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-warning-subtle text-call-dialing">
           <PhoneOutgoing className="size-5" aria-hidden />
@@ -394,7 +428,7 @@ export function CallModeHeader({ call, lead, busy, onHangup, onToggleVera }: Cal
   }, [showReminder, connectedAt]);
   const inbound = call.direction === 'inbound';
   return (
-    <div className="animate-fade-up sticky top-[calc(var(--kls-header-h)+8px)] z-20 mb-5 overflow-hidden rounded-lg border border-call-connected/50 bg-surface shadow-md">
+    <div className="animate-fade-up sticky top-[calc(var(--ws-top)+8px)] z-20 mb-5 overflow-hidden rounded-lg border border-call-connected/50 bg-surface shadow-md">
       <div className="flex flex-wrap items-center gap-x-6 gap-y-3 bg-call-connected/10 px-5 py-3.5">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-call-connected text-white">
@@ -450,7 +484,7 @@ export function CallModeHeader({ call, lead, busy, onHangup, onToggleVera }: Cal
 export function WrapupBar({ call, lead, action }: { call: CallSession; lead: Pick<Lead, 'fullname' | 'jobtitle' | 'companyname'>; action?: ReactNode }) {
   const duration = call.durationSec != null ? `${Math.floor(call.durationSec / 60)}:${String(call.durationSec % 60).padStart(2, '0')} Min.` : null;
   return (
-    <div className="animate-fade-up sticky top-[calc(var(--kls-header-h)+8px)] z-20 mb-5 flex flex-wrap items-center gap-4 rounded-lg border border-call-wrapup/40 bg-surface px-5 py-3 shadow-md">
+    <div className="animate-fade-up sticky top-[calc(var(--ws-top)+8px)] z-20 mb-5 flex flex-wrap items-center gap-4 rounded-lg border border-call-wrapup/40 bg-surface px-5 py-3 shadow-md">
       <span className="size-2.5 rounded-full bg-call-wrapup" aria-hidden />
       <div className="min-w-0 flex-1">
         <p className="text-sm font-semibold text-call-wrapup">Nachbearbeitung{duration ? ` · Gespräch ${duration}` : ''}</p>

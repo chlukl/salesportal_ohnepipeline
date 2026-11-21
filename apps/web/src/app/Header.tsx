@@ -8,7 +8,7 @@ import { Link, useNavigate } from 'react-router';
 import { Badge, BrandMark, cn, DropdownMenu, Kbd, Tooltip, type MenuSection } from '@/components/ui';
 import { api, errorMessage } from './api';
 import { useAuth } from './auth';
-import { useCallState, useElapsed } from './callState';
+import { callView, useCallState, useElapsed } from './callState';
 import { CallbackSearchField } from '@/pages/history/CallbackSearch';
 import { shortcutOverlay } from './shortcuts';
 import { DESIGNS, setDesign, setTheme, useDesign, useTheme } from './theme';
@@ -34,7 +34,7 @@ function CallStatus() {
   return (
     <button
       type="button"
-      onClick={() => call.leadId && navigate(`/lead/${call.leadId}`)}
+      onClick={() => call.leadId && !callView.open(call.leadId) && navigate(`/lead/${call.leadId}`)}
       disabled={!call.leadId}
       aria-live="polite"
       className={cn('flex h-8 items-center gap-2 rounded-full border bg-surface px-3 text-[13px] font-medium disabled:cursor-default', styles.ring)}

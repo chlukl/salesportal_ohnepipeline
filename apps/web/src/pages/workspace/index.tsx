@@ -15,7 +15,7 @@ import { useShortcut } from '@/app/shortcuts';
 import { toast } from '@/app/toast';
 import { Badge, Button, Card, CardBody, CardHeader, Dialog, EmptyState, GradeBadge, PageHeader, Skeleton, SkeletonText, Tabs, Textarea } from '@/components/ui';
 import { AnalysisReviewList, BriefingView, UseCaseMailPanel } from '@/pages/ai';
-import { CallModeHeader, callApi, DialBar, isRunning, NotesField, useLeadCall, useRestoreActiveCall, WrapupBar, type NotesFieldHandle, type NotReachedResponse } from '@/pages/calls';
+import { callApi, CallModeHeader, DialBar, isRunning, NotesField, notReachedToast, useLeadCall, useRestoreActiveCall, WrapupBar, type NotesFieldHandle, type NotReachedResponse } from '@/pages/calls';
 import { ChangeSetPreview, ResultPanel } from '@/pages/changesets';
 import { fetchNextLead, listSession, useNextLead } from '@/pages/leads/listQuery';
 import { ProposalsPanel, SchedulingPanel, type SchedulingResult } from '@/pages/scheduling';
@@ -80,25 +80,46 @@ function WorkspaceSkeleton() {
   );
 }
 
-function Workspace({ leadId }: { leadId: string }) {
+/**
+ * The workspace inside another page (the call overlay over the Anrufliste) instead of the route `/lead/:id`: the
+ * host decides what «Nächster Lead», «Nicht erreicht» and the end of the call mean; the URL is left alone.
+ */
+export interface WorkspaceEmbedding {
+  /** Back to the host (a running call keeps running – the host shows it). */
+  onClose: () => void;
+  /** Call approved / «Nächster Lead»: back to the host. `advance` = select the next lead there. */
+  onDone: (opts: { advance: boolean }) => void;
+  /** «Nicht erreicht» saved (only if the overlay itself was dialing). */
+  onNotReached: (res: NotReachedResponse) => void;
+}
+
+export function Workspace({ leadId, embedded }: { leadId: string; embedded?: WorkspaceEmbedding }) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [params, setParams] = useSearchParams();
   const ws = useQuery({ queryKey: ['workspace', leadId], queryFn: () => api.get<WorkspaceData>(`/api/workspace/${leadId}`) });
   const data = ws.data;
+  const embeddedRef = useRef(embedded);
+  embeddedRef.current = embedded;
+  const isEmbedded = !!embedded;
 
   const { hasRole } = useAuth();
   const isAdmin = hasRole('admin');
-  const [tab, setTab] = useState<RightTab>(() => (params.get('panel') === 'mail' ? 'mail' : 'result'));
+  const [tab, setTab] = useState<RightTab>(() => (!isEmbedded && params.get('panel') === 'mail' ? 'mail' : 'result'));
   const [overrideOpen, setOverrideOpen] = useState(false);
   const [preset, setPreset] = useState<{ rule: ResultGroupKey | null; newPerson: boolean; nonce: number }>({ rule: null, newPerson: false, nonce: 0 });
   const notes = useRef<NotesFieldHandle>(null);
   // Deep links from the Pendenzen / notifications: ?briefing=<bookingId>, ?analyse=<analysisId>, ?freigabe=<changeSetId>.
-  const [focus, setFocus] = useState<Focus | null>(() => focusFromParams(params));
+  const [focus, setFocus] = useState<Focus | null>(() => (isEmbedded ? null : focusFromParams(params)));
 
   // Next lead ---------------------------------------------------------------------------------------------------------
   const goNext = useCallback(
     async (opts: { markWorked?: boolean } = {}) => {
+      const host = embeddedRef.current;
+      if (host) {
+        host.onDone({ advance: true });
+        return;
+      }
       if (opts.markWorked !== false) listSession.markWorked(leadId);
       try {
         const next = await fetchNextLead(leadId);
@@ -116,32 +137,21 @@ function Workspace({ leadId }: { leadId: string }) {
 
   const onNotReached = useCallback(
     (res: NotReachedResponse) => {
-      const callId = res.call.id;
-      toast.success('Nicht erreicht – gespeichert', {
-        description: `Neuer Versuch ab ${formatZurich(res.nextAttemptAt, 'EEEEEE HH:mm').replace(/^\w\w/, (d) => ({ Mo: 'Mo', Tu: 'Di', We: 'Mi', Th: 'Do', Fr: 'Fr', Sa: 'Sa', Su: 'So' })[d] ?? d)} Uhr`,
-        action: {
-          label: 'Rückgängig',
-          onClick: () =>
-            void callApi
-              .undoNotReached(callId)
-              .then(() => {
-                listSession.unmarkWorked(leadId);
-                void queryClient.invalidateQueries({ queryKey: ['workspace', leadId] });
-                void queryClient.invalidateQueries({ queryKey: ['calls'] });
-                void queryClient.invalidateQueries({ queryKey: ['leads'] });
-                navigate(`/lead/${leadId}`);
-                toast.info('Rückgängig gemacht – der Anruf ist wieder offen');
-              })
-              .catch((err) => toast.error(errorMessage(err))),
-        },
-      });
-      if (res.suggestMail) {
-        toast.info(`${res.attempts}× nicht erreicht in ${res.windowDays} Tagen`, {
-          description: 'Vielleicht klappt es mit einer Use-Case-Mail.',
-          action: { label: 'Mail vorbereiten', onClick: () => navigate(`/lead/${leadId}?panel=mail`) },
-          duration: 12_000,
-        });
+      const host = embeddedRef.current;
+      if (host) {
+        host.onNotReached(res);
+        return;
       }
+      notReachedToast(res, {
+        onUndone: () => {
+          listSession.unmarkWorked(leadId);
+          void queryClient.invalidateQueries({ queryKey: ['workspace', leadId] });
+          void queryClient.invalidateQueries({ queryKey: ['calls'] });
+          void queryClient.invalidateQueries({ queryKey: ['leads'] });
+          navigate(`/lead/${leadId}`);
+        },
+        onMail: () => navigate(`/lead/${leadId}?panel=mail`),
+      });
       void goNext();
     },
     [goNext, leadId, navigate, queryClient],
@@ -150,12 +160,12 @@ function Workspace({ leadId }: { leadId: string }) {
   const lc = useLeadCall(leadId, data?.activeCall ?? null, { onNotReached });
   const call = isRunning(lc.call) ? lc.call : null;
   const phase = !call ? 'idle' : call.status === 'dialing' ? 'dialing' : call.status === 'connected' ? 'connected' : 'wrapup';
-  const next = useNextLead(leadId, phase === 'idle' && !!data?.canCall);
+  const next = useNextLead(leadId, phase === 'idle' && !!data?.canCall && !isEmbedded);
 
   // ?anruf=<id> (Rückruf angenommen, history module) and ?anrufen=1 (from the list) ------------------------------------
   const handledParams = useRef(false);
   useEffect(() => {
-    if (!data || handledParams.current) return;
+    if (!data || handledParams.current || isEmbedded) return;
     handledParams.current = true;
     const callId = params.get('anruf');
     const autoStart = params.get('anrufen') === '1';
@@ -220,10 +230,13 @@ function Workspace({ leadId }: { leadId: string }) {
 
   const onPushed = useCallback(
     (cs: ChangeSet) => {
+      const inbound = call?.direction === 'inbound';
+      const host = embeddedRef.current;
       lc.setCall(null);
-      if (call?.direction === 'inbound') return; // Rückruf: stay on the lead
       void cs;
-      window.setTimeout(() => void goNext(), 600);
+      // In the overlay: straight back to the list (the toast confirms); a Rückruf does not move the list on.
+      if (host) host.onDone({ advance: !inbound });
+      else if (!inbound) window.setTimeout(() => void goNext(), 600); // Rückruf: stay on the lead
     },
     [call?.direction, goNext, lc],
   );
@@ -246,7 +259,7 @@ function Workspace({ leadId }: { leadId: string }) {
         icon={Building2}
         title="Lead nicht gefunden"
         description={ws.error ? errorMessage(ws.error) : 'Der Lead existiert nicht mehr oder ist nicht sichtbar.'}
-        action={<Button onClick={() => navigate('/anrufliste')}>Zur Anrufliste</Button>}
+        action={<Button onClick={() => (embedded ? embedded.onClose() : navigate('/anrufliste'))}>Zur Anrufliste</Button>}
       />
     );
   }
@@ -347,7 +360,7 @@ function Workspace({ leadId }: { leadId: string }) {
           }
           actions={
             <>
-              <Button variant="ghost" icon={ArrowLeft} onClick={() => (canCall ? navigate('/anrufliste') : navigate(-1))}>
+              <Button variant="ghost" icon={ArrowLeft} onClick={() => (embedded ? embedded.onClose() : canCall ? navigate('/anrufliste') : navigate(-1))}>
                 {canCall ? 'Liste' : 'Zurück'}
               </Button>
               {canCall && (
@@ -583,7 +596,7 @@ function RightColumn({
     { id: 'mail' as const, label: 'Mail' },
   ];
   return (
-    <Card className="sticky top-[calc(var(--kls-header-h)+16px)] flex max-h-[calc(100vh-var(--kls-header-h)-32px)] flex-col">
+    <Card className="sticky top-[calc(var(--ws-top)+16px)] flex max-h-[calc(var(--ws-avail-h)-32px)] flex-col">
       <div className="px-4 pt-3">
         <Tabs items={tabs} value={tab} onChange={setTab} label="Rechter Bereich" />
       </div>

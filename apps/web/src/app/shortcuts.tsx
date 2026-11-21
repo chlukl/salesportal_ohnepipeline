@@ -7,8 +7,12 @@
  *
  * Keys: single keys ('n', '/', '?', 'escape'), modifiers ('mod' = Ctrl/⌘, 'shift', 'alt'), sequences of two ('g a').
  * Shortcuts are ignored while typing in inputs unless `allowInInput` is set.
+ *
+ * Layers: a modal context (e.g. the call overlay over the Anrufliste) wraps its content in `<ShortcutLayer active>`.
+ * While a layer is active only the shortcuts registered inside the topmost layer fire (plus `global` ones such as «?») –
+ * the page behind it keeps its registrations but does not react, so no key is handled twice.
  */
-import { useEffect, useRef } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { Dialog } from '@/components/ui/Dialog';
 import { Kbd } from '@/components/ui/Kbd';
 import { kbdLabel, keyLabel } from '@/components/ui/keys';
@@ -21,11 +25,15 @@ export interface ShortcutOptions {
   /** Hide from the «?» overview. */
   hidden?: boolean;
   enabled?: boolean;
+  /** Also fires while a higher shortcut layer is active (e.g. «?»). */
+  global?: boolean;
 }
 
 interface Registered extends ShortcutOptions {
   id: number;
   keys: string;
+  /** 0 = page; > 0 = inside a `<ShortcutLayer>`. */
+  layer: number;
   handler: (event: KeyboardEvent) => void;
 }
 
@@ -33,6 +41,26 @@ const registry = createStore<Registered[]>([]);
 export const shortcutOverlay = createStore(false);
 let nextId = 1;
 let pendingPrefix: { key: string; at: number } | null = null;
+
+/** Stack of active layers (last = topmost). */
+const layerStack = createStore<number[]>([]);
+const LayerContext = createContext(0);
+let nextLayer = 1;
+
+function topLayer(stack: number[] = layerStack.get()): number {
+  return stack.length ? stack[stack.length - 1]! : 0;
+}
+
+/** Shortcuts registered inside take over from the page while `active` (the page's shortcuts pause). */
+export function ShortcutLayer({ active, children }: { active: boolean; children: ReactNode }) {
+  const [id] = useState(() => nextLayer++);
+  useEffect(() => {
+    if (!active) return;
+    layerStack.set((s) => [...s.filter((x) => x !== id), id]);
+    return () => layerStack.set((s) => s.filter((x) => x !== id));
+  }, [active, id]);
+  return <LayerContext.Provider value={id}>{children}</LayerContext.Provider>;
+}
 
 
 function normalizeEventKey(e: KeyboardEvent): string {
@@ -65,7 +93,8 @@ function onKeyDown(e: KeyboardEvent): void {
   const typing = isTypingTarget(e.target);
   const combo = normalizeEventKey(e);
   const now = Date.now();
-  const entries = registry.get().filter((r) => r.enabled !== false && (!typing || r.allowInInput));
+  const top = topLayer();
+  const entries = registry.get().filter((r) => r.enabled !== false && (!typing || r.allowInInput) && (r.global || r.layer === top));
 
   // Two-key sequences ('g a').
   if (pendingPrefix && now - pendingPrefix.at < 1200) {
@@ -96,11 +125,11 @@ function ensureListener(): void {
   listening = true;
 }
 
-export function registerShortcut(keys: string, handler: (e: KeyboardEvent) => void, options: ShortcutOptions): () => void {
+export function registerShortcut(keys: string, handler: (e: KeyboardEvent) => void, options: ShortcutOptions, layer = 0): () => void {
   ensureListener();
   const id = nextId++;
   const normalized = keys.split(' ').map(normalizeCombo).join(' ');
-  registry.set((list) => [...list, { id, keys: normalized, handler, ...options }]);
+  registry.set((list) => [...list, { id, keys: normalized, handler, layer, ...options }]);
   return () => registry.set((list) => list.filter((r) => r.id !== id));
 }
 
@@ -108,10 +137,11 @@ export function registerShortcut(keys: string, handler: (e: KeyboardEvent) => vo
 export function useShortcut(keys: string, handler: (e: KeyboardEvent) => void, options: ShortcutOptions): void {
   const handlerRef = useRef(handler);
   handlerRef.current = handler;
-  const { description, group, allowInInput, hidden, enabled } = options;
+  const { description, group, allowInInput, hidden, enabled, global } = options;
+  const layer = useContext(LayerContext);
   useEffect(
-    () => registerShortcut(keys, (e) => handlerRef.current(e), { description, group, allowInInput, hidden, enabled }),
-    [keys, description, group, allowInInput, hidden, enabled],
+    () => registerShortcut(keys, (e) => handlerRef.current(e), { description, group, allowInInput, hidden, enabled, global }, layer),
+    [keys, description, group, allowInInput, hidden, enabled, global, layer],
   );
 }
 
@@ -125,7 +155,9 @@ export { kbdLabel };
 
 export function ShortcutOverlay() {
   const open = useStore(shortcutOverlay);
-  const entries = useStore(registry).filter((r) => !r.hidden);
+  // Only what works right now: the topmost layer (e.g. the call overlay) and global shortcuts.
+  const top = topLayer(useStore(layerStack));
+  const entries = useStore(registry).filter((r) => !r.hidden && (r.global || r.layer === top));
   const groups = new Map<string, Registered[]>();
   for (const e of entries) {
     const g = e.group ?? 'Allgemein';

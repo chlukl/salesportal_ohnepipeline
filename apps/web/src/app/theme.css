@@ -62,6 +62,10 @@
   --kls-shadow-lg: 0 16px 40px -8px rgb(16 24 40 / 0.18), 0 4px 10px -4px rgb(16 24 40 / 0.08);
   --kls-header-h: 56px;
   --kls-nav-w: 88px;
+  /* Lead-Arbeitsplatz: offset of the sticky call bars / right column and the height they may use. The call overlay over
+     the Anrufliste sets both for its own scroll area. */
+  --ws-top: var(--kls-header-h);
+  --ws-avail-h: calc(100vh - var(--kls-header-h));
 }
 
 /* Dark mode: explicit choice … */

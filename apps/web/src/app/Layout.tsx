@@ -92,7 +92,7 @@ function ActiveCallSync() {
 }
 
 export function Layout() {
-  useShortcut('?', () => shortcutOverlay.set((o) => !o), { description: 'Tastaturkürzel anzeigen', group: 'Allgemein' });
+  useShortcut('?', () => shortcutOverlay.set((o) => !o), { description: 'Tastaturkürzel anzeigen', group: 'Allgemein', global: true });
   return (
     <div className="min-h-full">
       <a href="#main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-50 focus:rounded-md focus:bg-surface focus:px-3 focus:py-2">

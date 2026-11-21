@@ -6,6 +6,7 @@ export { Card, CardBody, CardFooter, CardHeader, PageHeader } from './Card';
 export { cn } from './cn';
 export { Dialog, type DialogProps } from './Dialog';
 export { Drawer, SidePanel, type SidePanelProps } from './Drawer';
+export { Sheet, type SheetProps } from './Sheet';
 export { EmptyState, Kbd, Skeleton, SkeletonText, Spinner } from './Feedback';
 export { Checkbox, Field, Input, Select, Textarea, Toggle, type SelectOption } from './Form';
 export { DropdownMenu, type MenuItem, type MenuSection } from './Menu';

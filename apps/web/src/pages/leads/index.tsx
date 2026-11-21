@@ -1,6 +1,7 @@
 /**
  * Anrufliste (INTENT 6.1, 6.13): filters, saved filters per person, free sorting, selectable columns, score badge +
- * first lines of the KI-Bewertung, hint for good call times, fast paging with prefetch.
+ * first lines of the KI-Bewertung, hint for good call times, fast paging with prefetch. Calls start right here (dial
+ * bar); «Verbunden» opens the Lead-Arbeitsplatz as overlay over the list (`CallOverlay`).
  * OWNER: coldcall implementer.
  */
 import {
@@ -19,6 +20,7 @@ import { Bookmark, ChevronLeft, ChevronRight, Clock, Columns3, Phone, PhoneOff, 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router';
 import { api, errorMessage } from '@/app/api';
+import { callView } from '@/app/callState';
 import { useShortcut } from '@/app/shortcuts';
 import { toast } from '@/app/toast';
 import {
@@ -31,6 +33,7 @@ import {
   DropdownMenu,
   EmptyState,
   GradeBadge,
+  IconButton,
   Input,
   PageHeader,
   Select,
@@ -43,7 +46,9 @@ import {
   TR,
   type MenuSection,
 } from '@/components/ui';
-import { useRestoreActiveCall } from '@/pages/calls';
+import { DialBar, isRunning, notReachedToast, useLeadCall, useRestoreActiveCall, type NotReachedResponse } from '@/pages/calls';
+import { lockReasons, type WorkspaceData, type WorkspaceEmbedding } from '@/pages/workspace';
+import { CallOverlay, ConversationBar, minimizedCall } from './CallOverlay';
 import { DailyGoal } from './DailyGoal';
 import { FilterBar } from './Filters';
 import { DEFAULT_FILTER, listSession, toParams, type ListFilter } from './listQuery';
@@ -58,7 +63,14 @@ interface ColumnDef {
   sort?: LeadSortKey;
   align?: 'left' | 'right';
   className?: string;
-  render: (lead: Lead, now: Date) => React.ReactNode;
+  render: (lead: Lead, now: Date, ctx: CellContext) => React.ReactNode;
+}
+
+/** What a cell may do besides showing data – the phone number starts the call right in the list. */
+interface CellContext {
+  /** Start the call from the list; undefined when this lead cannot be called from here (locked, no number, call running). */
+  onCall?: () => void;
+  callHint: string;
 }
 
 function relDays(iso: string, now: Date): string {
@@ -104,6 +116,37 @@ const COLUMNS: ColumnDef[] = [
         <div className="truncate text-xs text-fg-subtle">{l.jobtitle ?? CONTACT_ROLE_LABELS[l.contactRole]}</div>
       </div>
     ),
+  },
+  // Telefon right after the person: Markus scans the list and clicks the number to call.
+  {
+    key: 'phone',
+    label: 'Telefon',
+    render: (l, _now, ctx) =>
+      l.primaryPhone ? (
+        ctx.onCall ? (
+          // Markus scans the list and clicks the number: the call starts here, the list stays (no lead page).
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              ctx.onCall?.();
+            }}
+            title={`${l.primaryPhone.display} anrufen`}
+            className="tabular -mx-1.5 inline-flex items-center gap-1.5 rounded-md px-1.5 py-0.5 whitespace-nowrap text-primary hover:bg-primary-subtle focus-visible:bg-primary-subtle"
+          >
+            <Phone className="size-3.5" aria-hidden />
+            {l.primaryPhone.display}
+          </button>
+        ) : (
+          <span className="tabular whitespace-nowrap text-fg-muted" title={ctx.callHint}>
+            {l.primaryPhone.display}
+          </span>
+        )
+      ) : (
+        <span className="inline-flex items-center gap-1 whitespace-nowrap text-warning">
+          <PhoneOff className="size-3.5" aria-hidden /> Nummer prüfen
+        </span>
+      ),
   },
   { key: 'employees', label: 'MA', sort: 'numberofemployees', align: 'right', render: (l) => (l.numberofemployees != null ? l.numberofemployees.toLocaleString('de-CH') : '–') },
   {
@@ -162,18 +205,6 @@ const COLUMNS: ColumnDef[] = [
       return <span className="text-fg-subtle">–</span>;
     },
   },
-  {
-    key: 'phone',
-    label: 'Telefon',
-    render: (l) =>
-      l.primaryPhone ? (
-        <span className="tabular whitespace-nowrap text-fg-muted">{l.primaryPhone.display}</span>
-      ) : (
-        <span className="inline-flex items-center gap-1 whitespace-nowrap text-warning">
-          <PhoneOff className="size-3.5" aria-hidden /> Nummer prüfen
-        </span>
-      ),
-  },
   { key: 'owner', label: 'Besitzer', render: (l) => <span className="text-fg-muted">{l.ownerName ?? '–'}</span> },
   {
     key: 'assessment',
@@ -201,7 +232,7 @@ const COLUMNS: ColumnDef[] = [
   },
 ];
 
-const DEFAULT_COLUMNS: ColumnKey[] = ['score', 'company', 'person', 'employees', 'place', 'callstatus', 'lastContact', 'due', 'phone', 'assessment'];
+const DEFAULT_COLUMNS: ColumnKey[] = ['score', 'company', 'person', 'phone', 'employees', 'place', 'callstatus', 'lastContact', 'due', 'assessment'];
 const COLUMNS_KEY = 'sp.anrufliste.columns';
 
 function loadColumns(): ColumnKey[] {
@@ -296,8 +327,20 @@ function SaveFilterDialog({ open, onClose, onSave }: { open: boolean; onClose: (
   );
 }
 
+/** Callable right from the list (else «Anrufen» opens the Lead-Arbeitsplatz, which explains why not). */
+function callableFromList(lead: Lead): boolean {
+  return !!lead.primaryPhone && !lead.donotphone && lockReasons(lead).length === 0;
+}
+
+function callHint(lead: Lead): string {
+  if (!lead.primaryPhone) return 'Keine Nummer – Lead öffnen und Nummer prüfen';
+  if (lead.donotphone) return 'Möchte nicht angerufen werden';
+  if (lockReasons(lead).length) return `Bitte nicht anrufen: ${lockReasons(lead).join(' · ')}`;
+  return `${lead.fullname ?? lead.companyname} anrufen`;
+}
+
 export default function LeadsPage() {
-  useRestoreActiveCall();
+  const activeCall = useRestoreActiveCall();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const [filter, setFilterState] = useState<ListFilter>(() => listSession.filter());
@@ -458,11 +501,147 @@ export default function LeadsPage() {
     { key: 'reset', items: [{ key: 'reset', label: 'Standard-Spalten', onSelect: () => setColumns(DEFAULT_COLUMNS) }] },
   ];
 
-  // Keyboard ----------------------------------------------------------------------------------------------------------
+  // Selection -------------------------------------------------------------------------------------------------------
   const items = data?.items ?? [];
-  const open = (lead: Lead | undefined, call = false) => lead && navigate(`/lead/${lead.leadid}${call ? '?anrufen=1' : ''}`);
-  const down = () => setSelected((s) => Math.min(s + 1, items.length - 1));
-  const up = () => setSelected((s) => Math.max(s - 1, 0));
+  const itemsRef = useRef(items);
+  itemsRef.current = items;
+  // After a call the list refreshes (the lead may drop out): the selection follows the chosen lead by id, not by row.
+  const followId = useRef<string | null>(null);
+  const selectRow = useCallback((index: number, follow: string | null = null) => {
+    followId.current = follow;
+    setSelected(Math.max(0, index));
+  }, []);
+  useEffect(() => {
+    followId.current = null;
+  }, [page, filter]);
+  useEffect(() => {
+    if (!items.length) return;
+    const id = followId.current;
+    const at = id ? items.findIndex((l) => l.leadid === id) : -1;
+    if (at >= 0) setSelected(at);
+    else setSelected((s) => Math.min(s, items.length - 1));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+  /** The call with `leadId` is done: mark it worked and select the next row (so «A» calls it right away). */
+  const advanceFrom = useCallback(
+    (leadId: string | null) => {
+      if (!leadId) return;
+      listSession.markWorked(leadId);
+      const list = itemsRef.current;
+      const at = list.findIndex((l) => l.leadid === leadId);
+      if (at < 0) return;
+      const next = list[at + 1];
+      // Last row of the page: stay – after the refresh the next lead moves up into it.
+      selectRow(next ? at + 1 : at, next?.leadid ?? null);
+    },
+    [selectRow],
+  );
+  const followLead = useCallback((leadId: string) => {
+    const at = itemsRef.current.findIndex((l) => l.leadid === leadId);
+    setSelected((s) => (at >= 0 ? at : s));
+    followId.current = leadId;
+  }, []);
+
+  // Call from the list ------------------------------------------------------------------------------------------------
+  // Wählen happens here (slim dial bar); «Nicht erreicht» stays in the list; «Verbunden» opens the Lead-Arbeitsplatz
+  // as overlay. The server stays the single source of truth (GET /api/calls/active, same endpoints as the workspace).
+  const running = isRunning(activeCall) ? activeCall : null;
+  const runningRef = useRef(running);
+  runningRef.current = running;
+  const dialing = running?.status === 'dialing' ? running : null;
+  const talking = running && running.status !== 'dialing' ? running : null;
+
+  const onNotReached = (res: NotReachedResponse) => {
+    const leadId = res.call.leadId;
+    notReachedToast(res, {
+      onUndone: (call) => {
+        lc.setCall(call);
+        if (!leadId) return;
+        listSession.unmarkWorked(leadId);
+        void queryClient.invalidateQueries({ queryKey: ['leads'] });
+        void queryClient.invalidateQueries({ queryKey: ['workspace', leadId] });
+        followLead(leadId);
+      },
+      onMail: () => leadId && navigate(`/lead/${leadId}?panel=mail`),
+    });
+    advanceFrom(leadId);
+  };
+  const lc = useLeadCall(running?.leadId ?? items[selected]?.leadid ?? '', running, { onNotReached });
+
+  // «Verbunden» (or a reload during the conversation) opens the overlay – unless it was minimized on purpose.
+  const [minimizedId, setMinimizedId] = useState<string | null>(() => minimizedCall.get());
+  const overlayOpen = !!talking && talking.id !== minimizedId;
+  const minimize = useCallback(() => {
+    const id = runningRef.current?.id ?? null;
+    minimizedCall.set(id);
+    setMinimizedId(id);
+  }, []);
+  const reopen = useCallback(() => {
+    minimizedCall.set(null);
+    setMinimizedId(null);
+  }, []);
+  // The header's call status brings the call up here instead of leaving the list.
+  useEffect(
+    () =>
+      callView.register((leadId) => {
+        const r = runningRef.current;
+        if (!r || r.leadId !== leadId) return false;
+        if (r.status === 'dialing') window.scrollTo({ top: 0, behavior: 'smooth' });
+        else reopen();
+        return true;
+      }),
+    [reopen],
+  );
+
+  const callLead = (lead: Lead | undefined) => {
+    if (!lead || lc.busy) return;
+    if (runningRef.current) {
+      if (runningRef.current.status !== 'dialing') reopen();
+      return;
+    }
+    if (!callableFromList(lead)) {
+      navigate(`/lead/${lead.leadid}`);
+      return;
+    }
+    const at = itemsRef.current.indexOf(lead);
+    if (at >= 0) selectRow(at, lead.leadid);
+    lc.start.mutate({ leadId: lead.leadid });
+  };
+
+  const callLeadLine = (call: { leadId: string | null; leadName: string | null; companyName: string | null }) =>
+    items.find((l) => l.leadid === call.leadId) ??
+    (call.leadId ? queryClient.getQueryData<WorkspaceData>(['workspace', call.leadId])?.lead : undefined) ?? {
+      fullname: call.leadName,
+      jobtitle: null,
+      companyname: call.companyName ?? '',
+    };
+
+  const embedding: WorkspaceEmbedding = {
+    onClose: minimize,
+    onDone: ({ advance }) => {
+      const leadId = talking?.leadId ?? null;
+      reopen(); // nothing minimized any more – the next conversation opens again
+      if (advance) advanceFrom(leadId);
+      void queryClient.invalidateQueries({ queryKey: ['leads'] });
+    },
+    onNotReached,
+  };
+
+  // Keyboard ----------------------------------------------------------------------------------------------------------
+  const open = (lead: Lead | undefined) => lead && navigate(`/lead/${lead.leadid}`);
+  const down = () => {
+    followId.current = null;
+    setSelected((s) => Math.min(s + 1, items.length - 1));
+  };
+  const up = () => {
+    followId.current = null;
+    setSelected((s) => Math.max(s - 1, 0));
+  };
+  // Key repeat / a second press before the re-render must never send a step twice (the server refuses it as well).
+  const once = (e: KeyboardEvent, fn: () => void) => {
+    if (e.repeat || lc.busy) return;
+    fn();
+  };
   useShortcut('j', down, { description: 'Nächste Zeile', group: 'Anrufliste' });
   useShortcut('k', up, { description: 'Vorherige Zeile', group: 'Anrufliste' });
   useShortcut('arrowdown', down, { description: 'Nächste Zeile', group: 'Anrufliste', enabled: pageFocus });
@@ -473,7 +652,23 @@ export default function LeadsPage() {
   useEffect(() => {
     tableRef.current?.querySelector('tr[aria-selected="true"]')?.scrollIntoView({ block: 'nearest' });
   }, [selected, data]);
-  useShortcut('a', () => open(items[selected] ?? items[0], true), { description: 'Gewählten Lead anrufen', group: 'Anrufliste' });
+  useShortcut('a', (e) => once(e, () => callLead(items[selected] ?? items[0])), {
+    description: talking ? 'Gespräch öffnen' : 'Gewählten Lead anrufen (bleibt in der Liste)',
+    group: 'Anrufliste',
+    enabled: !dialing,
+  });
+  useShortcut('v', (e) => once(e, () => dialing && lc.connected.mutate(dialing.id)), {
+    description: 'Verbunden – der Arbeitsplatz öffnet sich',
+    group: 'Anruf',
+    enabled: !!dialing,
+    hidden: !dialing,
+  });
+  useShortcut('x', (e) => once(e, () => dialing && lc.notReached.mutate(dialing.id)), {
+    description: 'Nicht erreicht – weiter zum nächsten Lead',
+    group: 'Anruf',
+    enabled: !!dialing,
+    hidden: !dialing,
+  });
   useShortcut('arrowright', () => page < pages && setPage(page + 1), { description: 'Nächste Seite', group: 'Anrufliste' });
   useShortcut('arrowleft', () => page > 1 && setPage(page - 1), { description: 'Vorherige Seite', group: 'Anrufliste' });
 
@@ -488,6 +683,18 @@ export default function LeadsPage() {
 
   return (
     <>
+      {dialing && (
+        <DialBar
+          call={dialing}
+          lead={callLeadLine(dialing)}
+          busy={lc.busy}
+          onConnected={() => lc.connected.mutate(dialing.id)}
+          onNotReached={() => lc.notReached.mutate(dialing.id)}
+          onAbandon={() => lc.abandon.mutate(dialing.id)}
+        />
+      )}
+      {talking && !overlayOpen && <ConversationBar call={talking} lead={callLeadLine(talking)} onOpen={reopen} />}
+      {talking && <CallOverlay call={talking} lead={callLeadLine(talking)} open={overlayOpen} embedding={embedding} />}
       <PageHeader
         title="Anrufliste"
         description={data ? `${data.total.toLocaleString('de-CH')} Leads zum Anrufen · ${SORT_OPTIONS.find((s) => s.value === sortKey)?.label}` : 'Leads nach Fälligkeit und Score'}
@@ -495,7 +702,16 @@ export default function LeadsPage() {
           <>
             <DailyGoal />
             <CallTimesHint />
-            <Button variant="primary" size="lg" icon={Phone} kbd="A" disabled={!first} onClick={() => open(first, true)}>
+            <Button
+              variant="primary"
+              size="lg"
+              icon={Phone}
+              kbd={running ? undefined : 'A'}
+              disabled={!first || !!running}
+              loading={lc.start.isPending}
+              title={running ? 'Zuerst den laufenden Anruf abschliessen' : first ? callHint(first) : undefined}
+              onClick={() => callLead(first)}
+            >
               {first ? `${first.companyname} anrufen` : 'Anrufen'}
             </Button>
           </>
@@ -568,6 +784,9 @@ export default function LeadsPage() {
                     {c.label}
                   </TH>
                 ))}
+                <TH align="right" className="w-12">
+                  <span className="sr-only">Anrufen</span>
+                </TH>
               </tr>
             </THead>
             <TBody>
@@ -581,9 +800,29 @@ export default function LeadsPage() {
                 >
                   {visible.map((c) => (
                     <TD key={c.key} align={c.align} className={c.className}>
-                      {c.render(lead, now)}
+                      {c.render(lead, now, {
+                        onCall: !running && !lc.busy && callableFromList(lead) ? () => callLead(lead) : undefined,
+                        callHint: callHint(lead),
+                      })}
                     </TD>
                   ))}
+                  <TD align="right" className="w-12" onClick={(e) => e.stopPropagation()}>
+                    {running?.leadId === lead.leadid ? (
+                      <span className="inline-flex size-8 items-center justify-center" title={running.status === 'dialing' ? 'wählt …' : 'im Gespräch'}>
+                        <span className={cn('pulse-dot size-2.5 rounded-full', running.status === 'dialing' ? 'bg-call-dialing' : 'bg-call-connected')} aria-hidden />
+                        <span className="sr-only">{running.status === 'dialing' ? 'wählt' : 'im Gespräch'}</span>
+                      </span>
+                    ) : (
+                      <IconButton
+                        icon={Phone}
+                        size="sm"
+                        label={callHint(lead)}
+                        disabled={!!running || lc.busy || !callableFromList(lead)}
+                        onClick={() => callLead(lead)}
+                        className="text-primary hover:bg-primary-subtle hover:text-primary"
+                      />
+                    )}
+                  </TD>
                 </TR>
               ))}
             </TBody>

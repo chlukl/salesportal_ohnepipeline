@@ -51,6 +51,24 @@ export const callState = {
   },
 };
 
+/**
+ * A page that shows the running call itself (the Anrufliste with its dial bar / call overlay) registers here; a click on
+ * the header status then brings that view up instead of navigating to `/lead/:id`.
+ */
+let callViewOpener: ((leadId: string) => boolean) | null = null;
+export const callView = {
+  register(open: (leadId: string) => boolean): () => void {
+    callViewOpener = open;
+    return () => {
+      if (callViewOpener === open) callViewOpener = null;
+    };
+  },
+  /** true = handled by the current page. */
+  open(leadId: string): boolean {
+    return callViewOpener?.(leadId) ?? false;
+  },
+};
+
 export function useCallState(): CallState {
   return useStore(callStore);
 }

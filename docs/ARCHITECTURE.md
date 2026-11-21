@@ -437,3 +437,17 @@ Umgebung (`ENVIRONMENT_LABEL=Demo|Sandbox|Prod`) immer in der Kopfleiste sichtba
   `BriefingView`) statt Coldcall-Tabs; `flushNote` wirft, wenn die Notiz nicht gespeichert ist (Push bricht ab).
 - **Später** (bewusst nicht umgesetzt): «Neu bewerten» (INTENT 6.13) – die Bewertungslogik/Pipeline ist nicht Teil dieses
   Portals; Knopf + Endpoint folgen mit der Pipeline-Anbindung.
+
+### 21.11.2026 – Anrufen aus der Anrufliste (web: leads, workspace, calls, Fundament-UI)
+
+- **Ablauf**: «Anrufen» (Kopf-Knopf, Knopf pro Zeile, `a`) startet den Anruf direkt in der Liste (gleiche Endpunkte
+  `POST /api/calls` …, Hook `useLeadCall` – `start` nimmt optional `leadId`). Wählleiste (`DialBar`) oben auf der Liste;
+  «Nicht erreicht» speichert wie bisher (Toast mit «Rückgängig», geteilt als `notReachedToast`) und wählt den nächsten Lead
+  aus. «Verbunden» öffnet den Lead-Arbeitsplatz (`Workspace` mit `embedded`) als Overlay (`components/ui/Sheet`) über der
+  Liste; Esc/«Zur Liste» minimiert nur (Leiste «Gespräch öffnen», Kopfleisten-Status öffnet es wieder). Nach «Freigeben»
+  schliesst das Overlay, die Liste lädt neu, der nächste Lead ist gewählt. `/lead/:id` verhält sich unverändert.
+- **shortcuts.tsx (additiv)**: `<ShortcutLayer active>` – solange aktiv, reagieren nur Kürzel aus der obersten Ebene (plus
+  `global`, z. B. «?»); die «?»-Übersicht zeigt nur diese. **callState.ts (additiv)**: `callView.register/open` – eine Seite,
+  die den laufenden Anruf selbst zeigt, übernimmt den Klick auf den Kopfleisten-Status.
+- **theme.css (additiv)**: `--ws-top` / `--ws-avail-h` (Abstand und Höhe der klebenden Anrufleisten und der rechten Spalte des
+  Arbeitsplatzes; das Overlay setzt sie für seinen Scrollbereich). Keine Server-Änderung.
