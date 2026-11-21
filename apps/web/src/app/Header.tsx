@@ -5,13 +5,13 @@ import { CALL_PHASE_LABELS, ROLE_LABELS, ROLES, type HeaderCounters, type Role }
 import { useQuery } from '@tanstack/react-query';
 import { Check, ChevronDown, Eye, Keyboard, ListChecks, LogOut, Monitor, Moon, PhoneMissed, Sparkles, Sun, Undo2 } from 'lucide-react';
 import { Link, useNavigate } from 'react-router';
-import { Badge, cn, DropdownMenu, Kbd, Tooltip, type MenuSection } from '@/components/ui';
+import { Badge, BrandMark, cn, DropdownMenu, Kbd, Tooltip, type MenuSection } from '@/components/ui';
 import { api, errorMessage } from './api';
 import { useAuth } from './auth';
 import { useCallState, useElapsed } from './callState';
 import { CallbackSearchField } from '@/pages/history/CallbackSearch';
 import { shortcutOverlay } from './shortcuts';
-import { setTheme, useTheme } from './theme';
+import { DESIGNS, setDesign, setTheme, useDesign, useTheme } from './theme';
 import { toast } from './toast';
 
 function CallStatus() {
@@ -108,6 +108,7 @@ function EnvironmentBadge() {
 function UserMenu() {
   const { me, setViewAs, logout } = useAuth();
   const theme = useTheme();
+  const design = useDesign();
   const initials = me.user.displayName
     .split(/\s+/)
     .map((p) => p[0])
@@ -141,8 +142,26 @@ function UserMenu() {
     });
   }
   sections.push({
+    key: 'design',
+    title: 'Design',
+    items: DESIGNS.map((d) => ({
+      key: `design-${d.id}`,
+      label: (
+        <span className="flex items-center gap-2.5">
+          <span className={cn('size-3.5 shrink-0 rounded-full ring-2', d.swatch)} aria-hidden />
+          <span className="leading-tight">
+            <span className="block">{d.label}</span>
+            <span className="block text-[11px] text-fg-subtle">{d.description}</span>
+          </span>
+        </span>
+      ),
+      checked: design === d.id,
+      onSelect: () => setDesign(d.id),
+    })),
+  });
+  sections.push({
     key: 'theme',
-    title: 'Darstellung',
+    title: 'Hell / Dunkel',
     items: [
       { key: 'light', label: 'Hell', icon: Sun, checked: theme === 'light', onSelect: () => setTheme('light') },
       { key: 'dark', label: 'Dunkel', icon: Moon, checked: theme === 'dark', onSelect: () => setTheme('dark') },
@@ -204,7 +223,7 @@ export function Header() {
   return (
     <header className="fixed inset-x-0 top-0 z-30 flex h-[var(--kls-header-h)] items-center gap-4 border-b border-border bg-surface/95 pr-4 pl-4 backdrop-blur">
       <Link to="/" className="flex w-[calc(var(--kls-nav-w)-16px)] shrink-0 items-center gap-2" aria-label="Sales-Portal – Startseite">
-        <img src="/favicon.svg" alt="" className="size-7" />
+        <BrandMark />
       </Link>
       <div className="flex shrink-0 items-center gap-3">
         <span className="text-[15px] font-semibold tracking-[-0.01em] whitespace-nowrap text-fg">Sales-Portal</span>

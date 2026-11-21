@@ -53,6 +53,10 @@
   --kls-radius-sm: 6px;
   --kls-radius-md: 8px;
   --kls-radius-lg: 12px;
+  --kls-radius-button: var(--kls-radius-md);
+  /* Logo tile in header / login */
+  --kls-brand-bg: var(--kls-primary);
+  --kls-brand-fg: #ffffff;
   --kls-shadow-sm: 0 1px 2px rgb(16 24 40 / 0.05);
   --kls-shadow-md: 0 4px 12px -2px rgb(16 24 40 / 0.08), 0 2px 4px -2px rgb(16 24 40 / 0.04);
   --kls-shadow-lg: 0 16px 40px -8px rgb(16 24 40 / 0.18), 0 4px 10px -4px rgb(16 24 40 / 0.08);
@@ -146,6 +150,155 @@
     --kls-shadow-md: 0 6px 16px -4px rgb(0 0 0 / 0.5);
     --kls-shadow-lg: 0 18px 44px -8px rgb(0 0 0 / 0.65);
   }
+}
+
+/*
+ * Designs (data-design on <html>, chosen in the user menu). Each design only swaps neutrals, accent and shape;
+ * the meaning colors (grades, status, warning) stay the same everywhere. Order matters: a design's light block
+ * comes before its dark block (same specificity rule as the standard blocks above).
+ */
+
+/* Kallysoft – Corporate Design nach kallysoft.ch: Inter, Navy-Titel, Indigo-Akzent, Pill-Buttons, «KS:»-Kachel */
+:root[data-design='kallysoft'] {
+  --kls-bg: #f6f7fb;
+  --kls-surface: #ffffff;
+  --kls-surface-2: #f4f5fa;
+  --kls-surface-3: #eaecf5;
+  --kls-border: #e8eaf1;
+  --kls-border-strong: #d2d6e3;
+  --kls-fg: #0a2540;
+  --kls-fg-muted: #515a6b;
+  --kls-fg-subtle: #8a91a0;
+  --kls-primary: #475adf;
+  --kls-primary-hover: #3a4bc8;
+  --kls-primary-fg: #ffffff;
+  --kls-primary-subtle: #e3e7ff;
+  --kls-ring: rgb(71 90 223 / 0.35);
+  --kls-info: #1266da;
+  --kls-info-subtle: #e6effc;
+  --kls-call-wrapup: #1266da;
+  --kls-radius-button: 999px;
+  --kls-brand-bg: #333333;
+  --kls-brand-fg: #ffffff;
+  --kls-shadow-sm: 0 1px 2px rgb(10 37 64 / 0.05);
+  --kls-shadow-md: 0 6px 16px -4px rgb(10 37 64 / 0.08), 0 2px 4px -2px rgb(10 37 64 / 0.04);
+  --kls-shadow-lg: 0 18px 44px -10px rgb(10 37 64 / 0.18), 0 4px 10px -4px rgb(10 37 64 / 0.06);
+}
+:root[data-design='kallysoft'][data-theme='dark'] {
+  --kls-bg: #08111f;
+  --kls-surface: #0e1a2c;
+  --kls-surface-2: #132238;
+  --kls-surface-3: #1a2b45;
+  --kls-border: #1f304b;
+  --kls-border-strong: #31466b;
+  --kls-fg: #e9eef6;
+  --kls-fg-muted: #a5b0c4;
+  --kls-fg-subtle: #6f7c94;
+  --kls-primary: #7f8dff;
+  --kls-primary-hover: #99a4ff;
+  --kls-primary-fg: #08111f;
+  --kls-primary-subtle: rgb(127 141 255 / 0.15);
+  --kls-ring: rgb(127 141 255 / 0.45);
+  --kls-info: #6ea6ff;
+  --kls-info-subtle: rgb(110 166 255 / 0.14);
+  --kls-call-wrapup: #6ea6ff;
+  --kls-brand-bg: #e9eef6;
+  --kls-brand-fg: #0a2540;
+  --kls-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --kls-shadow-md: 0 6px 16px -4px rgb(0 0 0 / 0.5);
+  --kls-shadow-lg: 0 18px 44px -8px rgb(0 0 0 / 0.65);
+}
+
+/* Graphit – reines Schwarz-Weiss, kantiger, Akzent = Text */
+:root[data-design='graphit'] {
+  --kls-bg: #f7f7f8;
+  --kls-surface: #ffffff;
+  --kls-surface-2: #f4f4f5;
+  --kls-surface-3: #e9e9ec;
+  --kls-border: #e4e4e7;
+  --kls-border-strong: #d1d1d6;
+  --kls-fg: #18181b;
+  --kls-fg-muted: #52525b;
+  --kls-fg-subtle: #8e8e96;
+  --kls-primary: #18181b;
+  --kls-primary-hover: #3f3f46;
+  --kls-primary-fg: #ffffff;
+  --kls-primary-subtle: #ededf0;
+  --kls-ring: rgb(24 24 27 / 0.3);
+  --kls-call-wrapup: #2456b3;
+  --kls-radius-sm: 4px;
+  --kls-radius-md: 6px;
+  --kls-radius-lg: 10px;
+  --kls-brand-bg: #18181b;
+  --kls-brand-fg: #ffffff;
+}
+:root[data-design='graphit'][data-theme='dark'] {
+  --kls-bg: #09090b;
+  --kls-surface: #111113;
+  --kls-surface-2: #18181b;
+  --kls-surface-3: #222225;
+  --kls-border: #27272a;
+  --kls-border-strong: #3f3f46;
+  --kls-fg: #f4f4f5;
+  --kls-fg-muted: #a1a1aa;
+  --kls-fg-subtle: #71717a;
+  --kls-primary: #f4f4f5;
+  --kls-primary-hover: #d4d4d8;
+  --kls-primary-fg: #09090b;
+  --kls-primary-subtle: rgb(244 244 245 / 0.1);
+  --kls-ring: rgb(244 244 245 / 0.35);
+  --kls-call-wrapup: #7aa7f5;
+  --kls-brand-bg: #f4f4f5;
+  --kls-brand-fg: #09090b;
+}
+
+/* Sand – warme Neutraltöne, Terrakotta-Akzent */
+:root[data-design='sand'] {
+  --kls-bg: #f7f5f1;
+  --kls-surface: #fffefb;
+  --kls-surface-2: #f4f1ec;
+  --kls-surface-3: #ebe6de;
+  --kls-border: #e7e1d7;
+  --kls-border-strong: #d4cbbd;
+  --kls-fg: #1f1b16;
+  --kls-fg-muted: #5e554a;
+  --kls-fg-subtle: #968b7d;
+  --kls-primary: #b4532a;
+  --kls-primary-hover: #994522;
+  --kls-primary-fg: #ffffff;
+  --kls-primary-subtle: #f7e7de;
+  --kls-ring: rgb(180 83 42 / 0.35);
+  --kls-warning: #a16207;
+  --kls-warning-subtle: #fdf3d8;
+  --kls-radius-lg: 14px;
+  --kls-brand-bg: #b4532a;
+  --kls-brand-fg: #ffffff;
+  --kls-shadow-sm: 0 1px 2px rgb(60 40 20 / 0.05);
+  --kls-shadow-md: 0 6px 16px -4px rgb(60 40 20 / 0.08), 0 2px 4px -2px rgb(60 40 20 / 0.04);
+  --kls-shadow-lg: 0 18px 44px -10px rgb(60 40 20 / 0.18), 0 4px 10px -4px rgb(60 40 20 / 0.06);
+}
+:root[data-design='sand'][data-theme='dark'] {
+  --kls-bg: #14110e;
+  --kls-surface: #1b1714;
+  --kls-surface-2: #221d19;
+  --kls-surface-3: #2c2621;
+  --kls-border: #332c25;
+  --kls-border-strong: #4a4036;
+  --kls-fg: #f2ece4;
+  --kls-fg-muted: #bdb1a2;
+  --kls-fg-subtle: #85796b;
+  --kls-primary: #e08a5f;
+  --kls-primary-hover: #eba27d;
+  --kls-primary-fg: #1b0e07;
+  --kls-primary-subtle: rgb(224 138 95 / 0.15);
+  --kls-ring: rgb(224 138 95 / 0.45);
+  --kls-warning: #f0c25a;
+  --kls-warning-subtle: rgb(240 194 90 / 0.13);
+  --kls-brand-bg: #e08a5f;
+  --kls-brand-fg: #1b0e07;
+  --kls-shadow-sm: 0 1px 2px rgb(0 0 0 / 0.4);
+  --kls-shadow-md: 0 6px 16px -4px rgb(0 0 0 / 0.5);
+  --kls-shadow-lg: 0 18px 44px -8px rgb(0 0 0 / 0.65);
 }
 
 /* Tailwind names → tokens (use `bg-surface`, `text-fg-muted`, `border-border`, `bg-primary` …). */

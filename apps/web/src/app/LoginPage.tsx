@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowRight, LogIn, ShieldCheck } from 'lucide-react';
 import { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router';
-import { Badge, Button, cn, Skeleton } from '@/components/ui';
+import { Badge, BrandMark, Button, cn, Skeleton } from '@/components/ui';
 import { api, errorMessage } from './api';
 import { ME_QUERY_KEY } from './auth';
 import { toast } from './toast';
@@ -57,7 +57,7 @@ export function LoginPage() {
     <div className="flex min-h-full items-center justify-center bg-bg px-6 py-16">
       <div className="w-full max-w-[720px]">
         <div className="mb-10 flex items-center gap-3">
-          <img src="/favicon.svg" alt="" className="size-10" />
+          <BrandMark size="lg" />
           <div>
             <h1 className="text-2xl font-semibold tracking-[-0.015em] text-fg">Sales-Portal</h1>
             <p className="text-sm text-fg-muted">Vom CRM-Lead zum Termin – in einem Fenster.</p>

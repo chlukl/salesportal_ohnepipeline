@@ -41,7 +41,8 @@ export function Button({ variant = 'secondary', size = 'md', loading, icon: Icon
       disabled={disabled || loading}
       aria-busy={loading || undefined}
       className={cn(
-        'inline-flex shrink-0 items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors select-none',
+        // Corner radius comes from the design (Kallysoft: pill buttons like kallysoft.ch).
+        'inline-flex shrink-0 items-center justify-center rounded-[var(--kls-radius-button)] font-medium whitespace-nowrap transition-colors select-none',
         'disabled:pointer-events-none disabled:opacity-50',
         VARIANTS[variant],
         SIZES[size],

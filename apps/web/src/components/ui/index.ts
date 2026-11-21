@@ -1,5 +1,6 @@
 /** UI kit – use these instead of ad-hoc markup so the portal stays calm and consistent. */
 export { Badge, GradeBadge, type BadgeProps, type BadgeTone, type GradeBadgeProps } from './Badge';
+export { BrandMark } from './BrandMark';
 export { Button, IconButton, type ButtonProps, type IconButtonProps } from './Button';
 export { Card, CardBody, CardFooter, CardHeader, PageHeader } from './Card';
 export { cn } from './cn';

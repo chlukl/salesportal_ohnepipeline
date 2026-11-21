@@ -6,8 +6,9 @@ import { createRoot } from 'react-dom/client';
 import { RouterProvider } from 'react-router';
 import { ApiError } from './app/api';
 import { router } from './app/router';
-import { applyTheme, themeStore } from './app/theme';
+import { applyDesign, applyTheme, designStore, themeStore } from './app/theme';
 
+applyDesign(designStore.get());
 applyTheme(themeStore.get());
 
 const queryClient = new QueryClient({
