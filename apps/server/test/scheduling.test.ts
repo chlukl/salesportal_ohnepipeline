@@ -223,12 +223,28 @@ describe('booking', () => {
   });
 
   it('Zusatzcall only when Manuel cannot', async () => {
-    const { slots } = await getSlots(markus, addDaysIso(nextMonday(), 28));
+    const { slots } = await getSlots(markus, addDaysIso(nextMonday(), 28), false, 10);
+    // A standard slot (Manuel free) where Lukas and Nico are free too – otherwise the guard answers «belegt» first
+    // (the demo calendars are generated relative to today, so slots[0] may be busy for Lukas).
+    const rules = (await t.app.inject({ method: 'GET', url: '/api/scheduling/rules', headers: { cookie: markus.cookie } })).json();
+    let standardSlot: Slot | undefined;
+    for (const s of slots) {
+      const schedules = await calendar().getSchedule(
+        [DEMO_EMAILS.lukas, DEMO_EMAILS.nico],
+        new Date(new Date(s.start).getTime() - 3_600_000).toISOString(),
+        new Date(new Date(s.end).getTime() + 3_600_000).toISOString(),
+      );
+      if (isSlotFree(s, schedules, rules)) {
+        standardSlot = s;
+        break;
+      }
+    }
+    expect(standardSlot).toBeTruthy();
     const res = await t.app.inject({
       method: 'POST',
       url: '/api/scheduling/bookings',
       headers: markus.headers,
-      payload: bookingPayload(leads[3], slots[0].start, { extraCall: true }),
+      payload: bookingPayload(leads[3], standardSlot!.start, { extraCall: true }),
     });
     expect(res.statusCode).toBe(409);
     expect(res.json().error.code).toBe('extra_call_not_allowed');
